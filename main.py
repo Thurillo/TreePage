@@ -7,11 +7,17 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 import pathlib
 
+from config import init_auth, load_auth
 from routers import dashboard, admin, scripts_proxy
 
 BASE_DIR = pathlib.Path(__file__).parent
+
+# Ensure auth.yaml exists before reading the secret key
+init_auth()
+_auth = load_auth()
 
 app = FastAPI(
     title="TreePage",
@@ -19,6 +25,13 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=_auth["secret_key"],
+    same_site="lax",
+    https_only=False,
 )
 
 # ── Static assets ──────────────────────────────────────────────────────────

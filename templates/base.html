@@ -19,8 +19,22 @@
       <a class="topbar__link" href="/dashboard/" title="Dashboards">&#127968;</a>
       <a class="topbar__link" href="/admin/" title="Admin">&#9881;&#65039;</a>
       <a class="topbar__link" href="/api/docs" title="API docs" target="_blank">&#128196;</a>
+      {% if request.session.get("admin") %}
+      <a class="topbar__link" href="/admin/change-password" title="Cambio password">&#128273;</a>
+      <form method="post" action="/admin/logout" style="display:inline;margin:0">
+        <button class="topbar__link topbar__logout" type="submit" title="Logout">&#128682;</button>
+      </form>
+      {% endif %}
     </div>
   </nav>
+
+  {% if request.session.get("_flash") %}
+  <div class="flash-container">
+    {% for msg in pop_flashes(request) %}
+    <div class="flash flash--{{ msg.category }}">{{ msg.text }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <main class="main">
     {% block content %}{% endblock %}

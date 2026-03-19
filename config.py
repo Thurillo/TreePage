@@ -4,6 +4,7 @@ Handles reading/writing YAML configs for users and scripts registry.
 """
 
 import pathlib
+import secrets
 import yaml
 from typing import Any
 
@@ -12,6 +13,7 @@ USERS_DIR = BASE_DIR / "users"
 PROJECTS_DIR = BASE_DIR / "projects"
 SCRIPTS_DIR = BASE_DIR / "scripts"
 REGISTRY_FILE = BASE_DIR / "scripts_registry.yaml"
+AUTH_FILE = BASE_DIR / "auth.yaml"
 
 USERS_DIR.mkdir(exist_ok=True)
 PROJECTS_DIR.mkdir(exist_ok=True)
@@ -91,6 +93,40 @@ def list_projects() -> list[str]:
         for d in PROJECTS_DIR.iterdir()
         if d.is_dir() and (d / "index.html").exists()
     )
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+def init_auth() -> None:
+    """Create auth.yaml with default credentials if it does not exist."""
+    if not AUTH_FILE.exists():
+        _save_yaml(AUTH_FILE, {
+            "username": "admin",
+            "password": "admin",
+            "secret_key": secrets.token_hex(32),
+        })
+
+
+def load_auth() -> dict:
+    return _load_yaml(AUTH_FILE)
+
+
+def save_auth(data: dict) -> None:
+    _save_yaml(AUTH_FILE, data)
+
+
+# ---------------------------------------------------------------------------
+# Flash messages
+# ---------------------------------------------------------------------------
+
+def flash(request: Any, message: str, category: str = "info") -> None:
+    request.session.setdefault("_flash", []).append({"text": message, "category": category})
+
+
+def pop_flashes(request: Any) -> list:
+    return request.session.pop("_flash", [])
 
 
 # ---------------------------------------------------------------------------

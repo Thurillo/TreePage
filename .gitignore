@@ -10,6 +10,9 @@ venv/
 .vscode/
 .idea/
 
+# Auth config (contains password in plaintext)
+auth.yaml
+
 # Logs
 *.log
 

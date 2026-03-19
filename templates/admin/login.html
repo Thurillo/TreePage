@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Login – TreePage Admin{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block content %}
+{% set flashes = pop_flashes(request) %}
+<div class="login-wrap">
+  {% for msg in flashes %}
+  <div class="flash flash--{{ msg.category }}">{{ msg.text }}</div>
+  {% endfor %}
+
+  <div class="login-card">
+    <div class="login-card__header">
+      <span class="login-card__logo">🌳</span>
+      <h1 class="login-card__title">TreePage Admin</h1>
+    </div>
+    <form method="post" action="/admin/login" class="login-form">
+      <label>
+        Utente
+        <input class="input" type="text" name="username" value="admin" autofocus required />
+      </label>
+      <label>
+        Password
+        <input class="input" type="password" name="password" required />
+      </label>
+      <button class="btn btn--primary" type="submit">Accedi</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

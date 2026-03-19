@@ -8,10 +8,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import pathlib
 
-from config import list_users, load_user, normalize_tile
+from config import list_users, load_user, normalize_tile, pop_flashes
 
 BASE_DIR = pathlib.Path(__file__).parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.globals["pop_flashes"] = pop_flashes
 
 router = APIRouter(tags=["dashboard"])
 

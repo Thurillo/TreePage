@@ -1,6 +1,7 @@
 """
 TreePage - Admin router
 CRUD for users, tiles, and scripts registry.
+All routes except /login and /logout require an active admin session.
 """
 
 import re
@@ -23,9 +24,15 @@ from config import (
     save_registry,
     list_projects,
     normalize_tile,
+    load_auth,
+    save_auth,
+    flash,
+    pop_flashes,
 )
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.globals["pop_flashes"] = pop_flashes
+
 router = APIRouter(tags=["admin"])
 
 _SLUG_RE = re.compile(r"^[a-z0-9_-]+$")
@@ -36,10 +43,80 @@ def _validate_slug(slug: str) -> None:
         raise HTTPException(400, "Slug non valido: usa solo lettere minuscole, numeri, - e _")
 
 
+def _check_admin(request: Request):
+    """Return a redirect response if the user is not authenticated, else None."""
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/admin/login", status_code=303)
+    return None
+
+
+# ── Auth routes ─────────────────────────────────────────────────────────────
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    if request.session.get("admin"):
+        return RedirectResponse(url="/admin/", status_code=303)
+    return templates.TemplateResponse("admin/login.html", {"request": request})
+
+
+@router.post("/login")
+async def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    auth = load_auth()
+    if username == auth["username"] and password == auth["password"]:
+        request.session["admin"] = True
+        return RedirectResponse(url="/admin/", status_code=303)
+    flash(request, "Credenziali non valide.", "error")
+    return RedirectResponse(url="/admin/login", status_code=303)
+
+
+@router.post("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/admin/login", status_code=303)
+
+
+@router.get("/change-password", response_class=HTMLResponse)
+async def change_password_page(request: Request):
+    if r := _check_admin(request):
+        return r
+    return templates.TemplateResponse("admin/change_password.html", {"request": request})
+
+
+@router.post("/change-password")
+async def change_password(
+    request: Request,
+    old_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    if r := _check_admin(request):
+        return r
+    auth = load_auth()
+    if old_password != auth["password"]:
+        flash(request, "Password attuale non corretta.", "error")
+        return RedirectResponse(url="/admin/change-password", status_code=303)
+    if new_password != confirm_password:
+        flash(request, "Le nuove password non coincidono.", "error")
+        return RedirectResponse(url="/admin/change-password", status_code=303)
+    if len(new_password) < 4:
+        flash(request, "La nuova password deve essere di almeno 4 caratteri.", "error")
+        return RedirectResponse(url="/admin/change-password", status_code=303)
+    auth["password"] = new_password
+    save_auth(auth)
+    flash(request, "Password aggiornata con successo.", "success")
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
 # ── Admin index ────────────────────────────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
 async def admin_index(request: Request):
+    if r := _check_admin(request):
+        return r
     users = []
     for slug in list_users():
         data = load_user(slug) or {}
@@ -64,6 +141,8 @@ async def admin_index(request: Request):
 
 @router.get("/users/new", response_class=HTMLResponse)
 async def new_user_form(request: Request):
+    if r := _check_admin(request):
+        return r
     return templates.TemplateResponse(
         "admin/user_edit.html",
         {"request": request, "user": None, "slug": "", "projects": list_projects(), "scripts": load_registry()},
@@ -72,11 +151,14 @@ async def new_user_form(request: Request):
 
 @router.post("/users/new")
 async def create_user(
+    request: Request,
     slug: str = Form(...),
     name: str = Form(...),
     description: str = Form(""),
     icon: str = Form("👤"),
 ):
+    if r := _check_admin(request):
+        return r
     _validate_slug(slug)
     if load_user(slug) is not None:
         raise HTTPException(409, f"Utente '{slug}' già esistente")
@@ -86,6 +168,8 @@ async def create_user(
 
 @router.get("/users/{slug}", response_class=HTMLResponse)
 async def edit_user_form(request: Request, slug: str):
+    if r := _check_admin(request):
+        return r
     data = load_user(slug)
     if data is None:
         raise HTTPException(404, f"Utente '{slug}' non trovato")
@@ -105,11 +189,14 @@ async def edit_user_form(request: Request, slug: str):
 
 @router.post("/users/{slug}/update")
 async def update_user(
+    request: Request,
     slug: str,
     name: str = Form(...),
     description: str = Form(""),
     icon: str = Form("👤"),
 ):
+    if r := _check_admin(request):
+        return r
     data = load_user(slug)
     if data is None:
         raise HTTPException(404, f"Utente '{slug}' non trovato")
@@ -121,7 +208,9 @@ async def update_user(
 
 
 @router.post("/users/{slug}/delete")
-async def delete_user_route(slug: str):
+async def delete_user_route(request: Request, slug: str):
+    if r := _check_admin(request):
+        return r
     if not delete_user(slug):
         raise HTTPException(404, f"Utente '{slug}' non trovato")
     return RedirectResponse(url="/admin/", status_code=303)
@@ -131,6 +220,7 @@ async def delete_user_route(slug: str):
 
 @router.post("/users/{slug}/tiles/add")
 async def add_tile(
+    request: Request,
     slug: str,
     title: str = Form(...),
     tile_type: str = Form(...),
@@ -142,6 +232,8 @@ async def add_tile(
     category: str = Form("Generale"),
     color: str = Form(""),
 ):
+    if r := _check_admin(request):
+        return r
     data = load_user(slug)
     if data is None:
         raise HTTPException(404)
@@ -166,7 +258,9 @@ async def add_tile(
 
 
 @router.post("/users/{slug}/tiles/{index}/delete")
-async def delete_tile(slug: str, index: int):
+async def delete_tile(request: Request, slug: str, index: int):
+    if r := _check_admin(request):
+        return r
     data = load_user(slug)
     if data is None:
         raise HTTPException(404)
@@ -180,7 +274,9 @@ async def delete_tile(slug: str, index: int):
 
 
 @router.post("/users/{slug}/tiles/{index}/move")
-async def move_tile(slug: str, index: int, direction: str = Form(...)):
+async def move_tile(request: Request, slug: str, index: int, direction: str = Form(...)):
+    if r := _check_admin(request):
+        return r
     data = load_user(slug)
     if data is None:
         raise HTTPException(404)
@@ -198,12 +294,15 @@ async def move_tile(slug: str, index: int, direction: str = Form(...)):
 
 @router.post("/scripts/add")
 async def add_script(
+    request: Request,
     name: str = Form(...),
     display_name: str = Form(...),
     port: int = Form(...),
     description: str = Form(""),
     autostart: bool = Form(False),
 ):
+    if r := _check_admin(request):
+        return r
     _validate_slug(name)
     registry = load_registry()
     registry[name] = {
@@ -214,13 +313,14 @@ async def add_script(
         "path": str(SCRIPTS_DIR / name),
     }
     save_registry(registry)
-    # Create script directory if not exists
     (SCRIPTS_DIR / name).mkdir(exist_ok=True)
     return RedirectResponse(url="/admin/", status_code=303)
 
 
 @router.post("/scripts/{name}/delete")
-async def delete_script(name: str):
+async def delete_script(request: Request, name: str):
+    if r := _check_admin(request):
+        return r
     registry = load_registry()
     if name not in registry:
         raise HTTPException(404, f"Script '{name}' non trovato")
@@ -232,7 +332,9 @@ async def delete_script(name: str):
 # ── Projects management ────────────────────────────────────────────────────
 
 @router.post("/projects/create")
-async def create_project(name: str = Form(...)):
+async def create_project(request: Request, name: str = Form(...)):
+    if r := _check_admin(request):
+        return r
     _validate_slug(name)
     project_dir = PROJECTS_DIR / name
     project_dir.mkdir(exist_ok=True)
@@ -247,7 +349,9 @@ async def create_project(name: str = Form(...)):
 
 
 @router.post("/projects/{name}/delete")
-async def delete_project(name: str):
+async def delete_project(request: Request, name: str):
+    if r := _check_admin(request):
+        return r
     project_dir = PROJECTS_DIR / name
     if project_dir.exists():
         shutil.rmtree(project_dir)
