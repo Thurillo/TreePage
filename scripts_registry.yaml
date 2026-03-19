@@ -1,0 +1,7 @@
+scripts:
+  example-script:
+    name: Script di Esempio
+    port: 9001
+    description: Microservizio Python di esempio – restituisce info di sistema
+    autostart: false
+    path: /opt/treepage/scripts/example-script

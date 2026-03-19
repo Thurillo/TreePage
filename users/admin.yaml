@@ -1,0 +1,38 @@
+name: Amministratore
+description: Dashboard completa con accesso a tutti i servizi
+icon: "🛡️"
+tiles:
+  - title: Pannello Admin
+    type: external
+    url: /admin/
+    icon: "⚙️"
+    description: Gestisci utenti, progetti e script
+    category: Amministrazione
+
+  - title: API Docs
+    type: external
+    url: /api/docs
+    icon: "📄"
+    description: Documentazione automatica delle API FastAPI
+    category: Amministrazione
+
+  - title: Progetto Esempio
+    type: project
+    project: example-project
+    icon: "🌐"
+    description: Pagina HTML di esempio ospitata localmente
+    category: Progetti
+
+  - title: Script di Esempio
+    type: script
+    script: example-script
+    icon: "🚀"
+    description: Microservizio Python di esempio
+    category: Script
+
+  - title: GitHub
+    type: external
+    url: https://github.com
+    icon: "🐙"
+    description: Repository e codice sorgente
+    category: Link Esterni

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Admin – TreePage{% endblock %}
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>&#9881;&#65039; Pannello di amministrazione</h1>
+</div>
+
+<div class="admin-layout">
+
+  <!-- ── USERS ──────────────────────────────────────────── -->
+  <section class="admin-section">
+    <div class="admin-section__header">
+      <h2>&#128100; Dashboard utenti</h2>
+      <a class="btn btn--primary btn--sm" href="/admin/users/new">+ Nuova</a>
+    </div>
+
+    {% if users %}
+    <table class="admin-table">
+      <thead>
+        <tr><th>Icona</th><th>Nome</th><th>Slug</th><th>Tiles</th><th>Azioni</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.icon }}</td>
+          <td>{{ u.name }}</td>
+          <td><code>{{ u.slug }}</code></td>
+          <td>{{ u.tile_count }}</td>
+          <td class="actions">
+            <a class="btn btn--sm" href="/admin/users/{{ u.slug }}">Modifica</a>
+            <a class="btn btn--sm" href="/dashboard/{{ u.slug }}" target="_blank">Apri</a>
+            <form method="post" action="/admin/users/{{ u.slug }}/delete" onsubmit="return confirm('Eliminare {{ u.name }}?')">
+              <button class="btn btn--sm btn--danger" type="submit">Elimina</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Nessun utente configurato. <a href="/admin/users/new">Crea il primo.</a></p>
+    {% endif %}
+  </section>
+
+  <!-- ── PROJECTS ───────────────────────────────────────── -->
+  <section class="admin-section">
+    <div class="admin-section__header">
+      <h2>&#128196; Progetti HTML ospitati</h2>
+    </div>
+
+    <form class="inline-form" method="post" action="/admin/projects/create">
+      <input class="input" type="text" name="name" placeholder="nome-progetto (solo lettere, numeri, - e _)" required pattern="[a-z0-9_-]+" />
+      <button class="btn btn--primary btn--sm" type="submit">+ Crea directory</button>
+    </form>
+
+    {% if projects %}
+    <table class="admin-table">
+      <thead><tr><th>Nome</th><th>URL</th><th>Azioni</th></tr></thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td>{{ p }}</td>
+          <td><a href="/projects/{{ p }}/" target="_blank">/projects/{{ p }}/</a></td>
+          <td class="actions">
+            <a class="btn btn--sm" href="/projects/{{ p }}/" target="_blank">Apri</a>
+            <form method="post" action="/admin/projects/{{ p }}/delete" onsubmit="return confirm('Eliminare il progetto {{ p }}? I file verranno rimossi.')">
+              <button class="btn btn--sm btn--danger" type="submit">Elimina</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Nessun progetto HTML. Carica un <code>index.html</code> in <code>projects/&lt;nome&gt;/</code> o crea una nuova directory.</p>
+    {% endif %}
+  </section>
+
+  <!-- ── SCRIPTS ────────────────────────────────────────── -->
+  <section class="admin-section">
+    <div class="admin-section__header">
+      <h2>&#128640; Script Python (microservizi)</h2>
+    </div>
+
+    <details class="collapsible">
+      <summary class="btn btn--sm">+ Registra nuovo script</summary>
+      <form class="card-form" method="post" action="/admin/scripts/add">
+        <div class="form-row">
+          <label>Slug (ID univoco)<input class="input" type="text" name="name" placeholder="backup-tool" required pattern="[a-z0-9_-]+" /></label>
+          <label>Nome visualizzato<input class="input" type="text" name="display_name" placeholder="Backup Tool" required /></label>
+        </div>
+        <div class="form-row">
+          <label>Porta<input class="input" type="number" name="port" placeholder="9001" min="1024" max="65535" required /></label>
+          <label>Descrizione<input class="input" type="text" name="description" placeholder="Descrizione opzionale" /></label>
+        </div>
+        <div class="form-row">
+          <label class="checkbox-label">
+            <input type="checkbox" name="autostart" value="true" />
+            Avvio automatico con systemd
+          </label>
+        </div>
+        <button class="btn btn--primary" type="submit">Registra script</button>
+      </form>
+    </details>
+
+    {% if scripts %}
+    <table class="admin-table">
+      <thead><tr><th>Slug</th><th>Nome</th><th>Porta</th><th>Endpoint</th><th>Azioni</th></tr></thead>
+      <tbody>
+        {% for slug, s in scripts.items() %}
+        <tr>
+          <td><code>{{ slug }}</code></td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.port }}</td>
+          <td><a href="/api/scripts/{{ slug }}/" target="_blank">/api/scripts/{{ slug }}/</a></td>
+          <td class="actions">
+            <form method="post" action="/admin/scripts/{{ slug }}/delete" onsubmit="return confirm('Rimuovere {{ slug }} dal registro?')">
+              <button class="btn btn--sm btn--danger" type="submit">Rimuovi</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Nessuno script registrato. Gli script Python devono girare su porte dedicate e venire registrati qui.</p>
+    {% endif %}
+  </section>
+
+</div><!-- /admin-layout -->
+{% endblock %}

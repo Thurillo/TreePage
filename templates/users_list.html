@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}TreePage – Dashboards{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>&#127968; Dashboards disponibili</h1>
+  <p class="page-header__sub">Seleziona la tua dashboard personale</p>
+</div>
+
+{% if users %}
+<div class="users-grid">
+  {% for u in users %}
+  <a class="user-card" href="/dashboard/{{ u.slug }}">
+    <span class="user-card__icon">{{ u.icon }}</span>
+    <div class="user-card__body">
+      <span class="user-card__name">{{ u.name }}</span>
+      {% if u.description %}
+      <span class="user-card__desc">{{ u.description }}</span>
+      {% endif %}
+    </div>
+    <span class="user-card__arrow">&#8594;</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <span class="empty-state__icon">&#128194;</span>
+  <p>Nessuna dashboard configurata.</p>
+  <a class="btn btn--primary" href="/admin/users/new">Crea la prima dashboard</a>
+</div>
+{% endif %}
+{% endblock %}

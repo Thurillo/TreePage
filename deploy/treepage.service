@@ -1,0 +1,35 @@
+# Systemd service per TreePage (backend FastAPI)
+# Installa in: /etc/systemd/system/treepage.service
+# Attiva con:  systemctl enable --now treepage
+
+[Unit]
+Description=TreePage – HTML aggregator & service dashboard
+After=network.target
+
+[Service]
+Type=exec
+User=treepage
+Group=treepage
+WorkingDirectory=/opt/treepage
+
+# Usa il venv creato da setup.sh
+ExecStart=/opt/treepage/venv/bin/uvicorn main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 2 \
+    --proxy-headers \
+    --forwarded-allow-ips="127.0.0.1"
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=treepage
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/treepage
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.name }} – TreePage{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block topbar_actions %}
+<span class="topbar__user">{{ user.icon }} {{ user.name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ user.icon }} {{ user.name }}</h1>
+  {% if user.description %}
+  <p class="page-header__sub">{{ user.description }}</p>
+  {% endif %}
+</div>
+
+{% if categories %}
+  {% for category, tiles in categories.items() %}
+  <section class="category">
+    <h2 class="category__title">{{ category }}</h2>
+    <div class="tiles-grid">
+      {% for tile in tiles %}
+      <a
+        class="tile tile--{{ tile.type }}{% if tile.color %} tile--custom{% endif %}"
+        href="{{ tile.url }}"
+        {% if tile.type == 'external' %}target="_blank" rel="noopener noreferrer"{% endif %}
+        {% if tile.color %}style="--tile-color: {{ tile.color }}"{% endif %}
+      >
+        <span class="tile__icon">{{ tile.icon }}</span>
+        <div class="tile__body">
+          <span class="tile__title">{{ tile.title }}</span>
+          {% if tile.description %}
+          <span class="tile__desc">{{ tile.description }}</span>
+          {% endif %}
+        </div>
+        <span class="tile__badge tile__badge--{{ tile.type }}">
+          {% if tile.type == 'project' %}HTML{% elif tile.type == 'script' %}API{% else %}↗{% endif %}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+{% else %}
+<div class="empty-state">
+  <span class="empty-state__icon">&#127744;</span>
+  <p>Nessun servizio configurato per questa dashboard.</p>
+  <a class="btn btn--primary" href="/admin/users/{{ user.slug }}">Aggiungi servizi</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}{% if user %}Modifica {{ user.name }}{% else %}Nuova Dashboard{% endif %} – Admin{% endblock %}
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="btn btn--sm" href="/admin/">&#8592; Admin</a>
+  <h1>{% if user %}&#9998; Modifica: {{ user.name }}{% else %}&#43; Nuova dashboard{% endif %}</h1>
+</div>
+
+<div class="admin-layout">
+
+  <!-- ── User info ──────────────────────────────────────── -->
+  <section class="admin-section">
+    <h2>Informazioni utente</h2>
+    <form class="card-form" method="post"
+      action="{% if user %}/admin/users/{{ slug }}/update{% else %}/admin/users/new{% endif %}">
+      <div class="form-row">
+        {% if not user %}
+        <label>Slug (ID univoco, non modificabile)
+          <input class="input" type="text" name="slug" value="{{ slug }}" required pattern="[a-z0-9_-]+" placeholder="operatore1" />
+        </label>
+        {% endif %}
+        <label>Nome visualizzato
+          <input class="input" type="text" name="name" value="{{ user.name if user else '' }}" required placeholder="Operatore 1" />
+        </label>
+        <label>Icona (emoji)
+          <input class="input" type="text" name="icon" value="{{ user.icon if user else '👤' }}" placeholder="👤" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label class="full-width">Descrizione
+          <input class="input" type="text" name="description" value="{{ user.description if user else '' }}" placeholder="Descrizione opzionale" />
+        </label>
+      </div>
+      <button class="btn btn--primary" type="submit">
+        {% if user %}Salva modifiche{% else %}Crea dashboard{% endif %}
+      </button>
+    </form>
+  </section>
+
+  <!-- ── Tiles list (only when editing) ────────────────── -->
+  {% if user %}
+  <section class="admin-section">
+    <h2>&#127744; Tiles ({{ tiles|length }})</h2>
+
+    {% if tiles %}
+    <div class="tiles-edit-list">
+      {% for tile in tiles %}
+      <div class="tile-edit-row tile-edit-row--{{ tile.type }}">
+        <span class="tile-edit-row__icon">{{ tile.icon }}</span>
+        <div class="tile-edit-row__info">
+          <strong>{{ tile.title }}</strong>
+          <span class="muted">{{ tile.category }} · {{ tile.type }}</span>
+          <span class="muted small">{{ tile.url }}</span>
+        </div>
+        <div class="tile-edit-row__actions">
+          <form method="post" action="/admin/users/{{ slug }}/tiles/{{ loop.index0 }}/move">
+            <input type="hidden" name="direction" value="up" />
+            <button class="btn btn--sm" type="submit" {% if loop.first %}disabled{% endif %}>&#8593;</button>
+          </form>
+          <form method="post" action="/admin/users/{{ slug }}/tiles/{{ loop.index0 }}/move">
+            <input type="hidden" name="direction" value="down" />
+            <button class="btn btn--sm" type="submit" {% if loop.last %}disabled{% endif %}>&#8595;</button>
+          </form>
+          <form method="post" action="/admin/users/{{ slug }}/tiles/{{ loop.index0 }}/delete"
+                onsubmit="return confirm('Eliminare tile {{ tile.title }}?')">
+            <button class="btn btn--sm btn--danger" type="submit">&#10005;</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Nessuna tile. Aggiungi servizi usando il form qui sotto.</p>
+    {% endif %}
+
+    <!-- Add tile form -->
+    <details class="collapsible" id="add-tile-form">
+      <summary class="btn btn--primary btn--sm">+ Aggiungi tile</summary>
+      <form class="card-form" method="post" action="/admin/users/{{ slug }}/tiles/add" id="tile-form">
+        <div class="form-row">
+          <label>Titolo
+            <input class="input" type="text" name="title" required placeholder="Nome servizio" />
+          </label>
+          <label>Tipo
+            <select class="input" name="tile_type" id="tile-type-select" onchange="tileTypeChanged(this.value)">
+              <option value="external">Link esterno</option>
+              <option value="project">Progetto HTML ospitato</option>
+              <option value="script">Script Python (API)</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- External URL field -->
+        <div class="form-row" id="field-url">
+          <label class="full-width">URL esterno
+            <input class="input" type="url" name="url" placeholder="https://esempio.com" />
+          </label>
+        </div>
+
+        <!-- Project select -->
+        <div class="form-row hidden" id="field-project">
+          <label class="full-width">Progetto ospitato
+            <select class="input" name="project">
+              <option value="">-- seleziona --</option>
+              {% for p in projects %}
+              <option value="{{ p }}">{{ p }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+
+        <!-- Script select -->
+        <div class="form-row hidden" id="field-script">
+          <label class="full-width">Script Python
+            <select class="input" name="script">
+              <option value="">-- seleziona --</option>
+              {% for sname, s in scripts.items() %}
+              <option value="{{ sname }}">{{ s.name }} (porta {{ s.port }})</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>Icona (emoji)
+            <input class="input" type="text" name="icon" value="🔗" placeholder="🔗" />
+          </label>
+          <label>Categoria
+            <input class="input" type="text" name="category" value="Generale" placeholder="Generale" list="categories-list" />
+            <datalist id="categories-list">
+              {% set all_cats = tiles | map(attribute='category') | list %}
+              {% for cat in all_cats | unique %}
+              <option value="{{ cat }}" />
+              {% endfor %}
+            </datalist>
+          </label>
+          <label>Colore personalizzato (hex/CSS)
+            <input class="input" type="text" name="color" placeholder="#1a73e8 (opzionale)" />
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="full-width">Descrizione
+            <input class="input" type="text" name="description" placeholder="Breve descrizione (opzionale)" />
+          </label>
+        </div>
+
+        <button class="btn btn--primary" type="submit">Aggiungi tile</button>
+      </form>
+    </details>
+  </section>
+
+  <div class="admin-actions">
+    <a class="btn" href="/dashboard/{{ slug }}" target="_blank">&#128065; Apri dashboard</a>
+    <form method="post" action="/admin/users/{{ slug }}/delete" onsubmit="return confirm('Eliminare tutta la dashboard di {{ user.name }}?')">
+      <button class="btn btn--danger" type="submit">&#128465; Elimina dashboard</button>
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function tileTypeChanged(type) {
+  document.getElementById('field-url').classList.toggle('hidden', type !== 'external');
+  document.getElementById('field-project').classList.toggle('hidden', type !== 'project');
+  document.getElementById('field-script').classList.toggle('hidden', type !== 'script');
+}
+</script>
+{% endblock %}

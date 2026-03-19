@@ -1,0 +1,24 @@
+name: Operatore 1
+description: Dashboard per operazioni di monitoraggio
+icon: "👷"
+tiles:
+  - title: Progetto Esempio
+    type: project
+    project: example-project
+    icon: "🌐"
+    description: Visualizza la pagina di esempio
+    category: Progetti
+
+  - title: Portainer
+    type: external
+    url: http://localhost:9000
+    icon: "🐳"
+    description: Gestione container Docker
+    category: Infrastruttura
+
+  - title: Grafana
+    type: external
+    url: http://localhost:3000
+    icon: "📊"
+    description: Dashboard metriche e monitoring
+    category: Monitoraggio
