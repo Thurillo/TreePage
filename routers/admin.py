@@ -7,6 +7,7 @@ All routes except /login and /logout require an active admin session.
 import re
 import shutil
 import subprocess
+import os
 import pathlib
 
 from fastapi import APIRouter, BackgroundTasks, Request, Form, HTTPException
@@ -165,14 +166,50 @@ async def run_update(request: Request):
             "ok": False,
         })
 
+    # 0b. Check that the treepage user can write to .git (common issue when git
+    #     was initialized as root but the app runs as a different user).
+    git_dir = BASE_DIR / ".git"
+    if not os.access(git_dir, os.W_OK):
+        import pwd, stat as _stat
+        try:
+            owner = pwd.getpwuid(git_dir.stat().st_uid).pw_name
+        except Exception:
+            owner = str(git_dir.stat().st_uid)
+        lines.append(
+            f"Errore: la directory .git è di proprietà di '{owner}' e non è "
+            f"scrivibile dall'utente corrente.\n\n"
+            f"Correggi i permessi come root sul server:\n\n"
+            f"  chown -R treepage:treepage /opt/treepage/.git"
+        )
+        return templates.TemplateResponse("admin/update.html", {
+            "request": request,
+            "output": "\n".join(lines),
+            "ok": False,
+        })
+
     # 1. git pull
     lines.append("$ git pull")
     code, out = _run(["git", "pull"], cwd=BASE_DIR)
-    lines.append(out.rstrip())
+    pull_out = out.rstrip()
+    lines.append(pull_out)
     if code != 0:
+        if "read-only file system" in pull_out.lower():
+            lines.append(
+                "\nIl filesystem .git non è scrivibile dall'utente corrente.\n"
+                "Esegui come root:\n\n"
+                "  chown -R treepage:treepage /opt/treepage/.git"
+            )
         ok = False
+    elif "already up to date" in pull_out.lower():
+        # git pull succeeded, no new commits — skip pip install
+        lines.append("\n✓ Nessun aggiornamento disponibile. Il codice è già all'ultima versione.")
+        return templates.TemplateResponse("admin/update.html", {
+            "request": request,
+            "output": "\n".join(lines),
+            "ok": True,
+        })
 
-    # 2. pip install (only if git pull succeeded)
+    # 2. pip install (only if git pull succeeded and there were changes)
     if ok:
         venv_pip = BASE_DIR / "venv" / "bin" / "pip"
         pip_cmd = str(venv_pip) if venv_pip.exists() else "pip"
