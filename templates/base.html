@@ -9,14 +9,21 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
 
+  {%- if request.session.get("admin") %}
+    {%- set home_url = "/admin/" %}
+  {%- elif user is defined %}
+    {%- set home_url = "/dashboard/" ~ user.slug %}
+  {%- else %}
+    {%- set home_url = "/" %}
+  {%- endif %}
   <nav class="topbar">
-    <a class="topbar__brand" href="/dashboard/">
+    <a class="topbar__brand" href="{{ home_url }}">
       <span class="topbar__logo">🌳</span>
       <span class="topbar__name">TreePage</span>
     </a>
     <div class="topbar__actions">
       {% block topbar_actions %}{% endblock %}
-      <a class="topbar__link" href="/dashboard/" title="Dashboards">&#127968;</a>
+      <a class="topbar__link" href="{{ home_url }}" title="Home">&#127968;</a>
       <a class="topbar__link" href="/admin/" title="Admin">&#9881;&#65039;</a>
       <a class="topbar__link" href="/api/docs" title="API docs" target="_blank">&#128196;</a>
       {% if request.session.get("admin") %}
