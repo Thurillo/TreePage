@@ -37,7 +37,8 @@ CURRENT_BRANCH=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || e
 if [ -n "$REMOTE_URL" ]; then
     if [ -d "$INSTALL_DIR/.git" ]; then
         echo "     Repository esistente – aggiornamento..."
-        git -c safe.directory="$INSTALL_DIR" -C "$INSTALL_DIR" pull origin "$CURRENT_BRANCH"
+        git -c safe.directory="$INSTALL_DIR" -C "$INSTALL_DIR" fetch origin "$CURRENT_BRANCH"
+        git -c safe.directory="$INSTALL_DIR" -C "$INSTALL_DIR" reset --hard FETCH_HEAD
     else
         echo "     Clone da $REMOTE_URL (branch: $CURRENT_BRANCH)..."
         rm -rf "$INSTALL_DIR"
