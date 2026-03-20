@@ -141,5 +141,63 @@
     {% endif %}
   </section>
 
+
+  <!-- ── DB QUERIES ──────────────────────────────────────── -->
+  <section class="admin-section">
+    <div class="admin-section__header">
+      <h2>&#128451; Query Database</h2>
+    </div>
+
+    <details class="collapsible">
+      <summary class="btn btn--sm">+ Aggiungi query</summary>
+      <form class="card-form" method="post" action="/admin/db-query/add">
+        <div class="form-row">
+          <label>Nome (slug univoco)
+            <input class="input" type="text" name="name" placeholder="letture_cerca" required pattern="[a-z0-9_-]+" />
+          </label>
+          <label>Config DB
+            <select class="input" name="config" required>
+              {% for cfg in db_configs_list %}
+              <option value="{{ cfg }}">{{ cfg }}</option>
+              {% endfor %}
+              {% if not db_configs_list %}
+              <option disabled>— nessun file in db_configs/ —</option>
+              {% endif %}
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label style="width:100%">SQL
+            <textarea class="input" name="sql" rows="8" placeholder="SELECT ... FROM ..." required style="font-family:monospace;font-size:.85rem;resize:vertical"></textarea>
+          </label>
+        </div>
+        <button class="btn btn--primary" type="submit">Salva query</button>
+      </form>
+    </details>
+
+    {% if db_queries %}
+    <table class="admin-table">
+      <thead><tr><th>Nome</th><th>Config DB</th><th>SQL (anteprima)</th><th>Endpoint GET</th><th>Azioni</th></tr></thead>
+      <tbody>
+        {% for qname, q in db_queries.items() %}
+        <tr>
+          <td><code>{{ qname }}</code></td>
+          <td><code>{{ q.config }}</code></td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:.8rem">{{ q.sql | replace('\n', ' ') | truncate(80) }}</td>
+          <td><code>/api/db/{{ qname }}</code></td>
+          <td class="actions">
+            <form method="post" action="/admin/db-query/{{ qname }}/delete" onsubmit="return confirm('Rimuovere la query {{ qname }}?')">
+              <button class="btn btn--sm btn--danger" type="submit">Rimuovi</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Nessuna query registrata. Aggiungi la prima usando il form sopra.</p>
+    {% endif %}
+  </section>
+
 </div><!-- /admin-layout -->
 {% endblock %}

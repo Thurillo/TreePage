@@ -10,6 +10,7 @@ import subprocess
 import os
 import pathlib
 
+import yaml
 from fastapi import APIRouter, BackgroundTasks, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -38,6 +39,28 @@ templates.env.globals["pop_flashes"] = pop_flashes
 router = APIRouter(tags=["admin"])
 
 _SLUG_RE = re.compile(r"^[a-z0-9_-]+$")
+
+_DB_QUERIES_FILE = BASE_DIR / "db_queries.yaml"
+_DB_CONFIGS_DIR = BASE_DIR / "db_configs"
+
+
+def _load_db_queries() -> dict:
+    if not _DB_QUERIES_FILE.exists():
+        return {}
+    return yaml.safe_load(_DB_QUERIES_FILE.read_text(encoding="utf-8")) or {}
+
+
+def _save_db_queries(data: dict) -> None:
+    _DB_QUERIES_FILE.write_text(
+        yaml.dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+def _list_db_configs() -> list[str]:
+    if not _DB_CONFIGS_DIR.exists():
+        return []
+    return sorted(p.stem for p in _DB_CONFIGS_DIR.glob("*.yaml"))
 
 
 def _validate_slug(slug: str) -> None:
@@ -266,6 +289,8 @@ async def admin_index(request: Request):
             "users": users,
             "projects": list_projects(),
             "scripts": load_registry(),
+            "db_queries": _load_db_queries(),
+            "db_configs_list": _list_db_configs(),
         },
     )
 
@@ -488,4 +513,36 @@ async def delete_project(request: Request, name: str):
     project_dir = PROJECTS_DIR / name
     if project_dir.exists():
         shutil.rmtree(project_dir)
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
+# ── DB Queries CRUD ─────────────────────────────────────────────────────────
+
+@router.post("/db-query/add")
+async def add_db_query(
+    request: Request,
+    name: str = Form(...),
+    config: str = Form(...),
+    sql: str = Form(...),
+):
+    if r := _check_admin(request):
+        return r
+    _validate_slug(name)
+    queries = _load_db_queries()
+    queries[name] = {"config": config, "sql": sql}
+    _save_db_queries(queries)
+    flash(request, f"Query '{name}' salvata.", "success")
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
+@router.post("/db-query/{name}/delete")
+async def delete_db_query(request: Request, name: str):
+    if r := _check_admin(request):
+        return r
+    queries = _load_db_queries()
+    if name not in queries:
+        raise HTTPException(404, f"Query '{name}' non trovata")
+    del queries[name]
+    _save_db_queries(queries)
+    flash(request, f"Query '{name}' rimossa.", "success")
     return RedirectResponse(url="/admin/", status_code=303)

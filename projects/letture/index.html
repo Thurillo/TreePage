@@ -257,7 +257,7 @@
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/letture?varco=${encodeURIComponent(varco)}`);
+      const res = await fetch(`/api/db/letture_cerca?varco=${encodeURIComponent(varco)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Errore server');
 
@@ -280,7 +280,11 @@
     if (!confirm('Eliminare questa lettura?')) return;
     btn.disabled = true;
     try {
-      const res = await fetch(`/api/letture/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/db/letture_elimina_riga`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: id})
+      });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || 'Errore cancellazione');
@@ -306,13 +310,17 @@
     setLoading(true);
     clearError();
     try {
-      const res = await fetch(`/api/letture?varco=${encodeURIComponent(currentVarco)}`, { method: 'DELETE' });
+      const res = await fetch(`/api/db/letture_elimina_tutto`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({varco: currentVarco})
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Errore cancellazione');
       document.getElementById('resultArea').style.display = 'none';
       document.getElementById('emptyMsg').style.display = 'block';
       document.getElementById('emptyMsg').textContent =
-        `Eliminate ${data.deleted} letture.`;
+        `Eliminate ${data.affected} letture.`;
     } catch (e) {
       showError(e.message);
     } finally {

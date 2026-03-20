@@ -13,6 +13,9 @@ venv/
 # Auth config (contains password in plaintext)
 auth.yaml
 
+# Credenziali database — mai sincronizzare
+db_configs/
+
 # Logs
 *.log
 
