@@ -210,27 +210,40 @@ async def run_update(request: Request):
             "ok": False,
         })
 
-    # 1. git pull
-    lines.append("$ git pull")
-    code, out = _run(["git", "pull"], cwd=BASE_DIR)
-    pull_out = out.rstrip()
-    lines.append(pull_out)
+    # 1a. git fetch origin
+    lines.append("$ git fetch origin")
+    code, out = _run(["git", "fetch", "origin"], cwd=BASE_DIR)
+    fetch_out = out.rstrip()
+    if fetch_out:
+        lines.append(fetch_out)
     if code != 0:
-        if "read-only file system" in pull_out.lower():
+        if "read-only file system" in fetch_out.lower():
             lines.append(
                 "\nIl filesystem .git non è scrivibile dall'utente corrente.\n"
                 "Esegui come root:\n\n"
                 "  chown -R treepage:treepage /opt/treepage/.git"
             )
         ok = False
-    elif "already up to date" in pull_out.lower():
-        # git pull succeeded, no new commits — skip pip install
-        lines.append("\n✓ Nessun aggiornamento disponibile. Il codice è già all'ultima versione.")
-        return templates.TemplateResponse("admin/update.html", {
-            "request": request,
-            "output": "\n".join(lines),
-            "ok": True,
-        })
+
+    # 1b. già aggiornato?
+    if ok:
+        diff_code, _ = _run(["git", "diff", "--quiet", "HEAD", "FETCH_HEAD"], cwd=BASE_DIR)
+        if diff_code == 0:
+            lines.append("Already up to date.")
+            lines.append("\n✓ Nessun aggiornamento disponibile. Il codice è già all'ultima versione.")
+            return templates.TemplateResponse("admin/update.html", {
+                "request": request,
+                "output": "\n".join(lines),
+                "ok": True,
+            })
+
+    # 1c. git reset --hard FETCH_HEAD (scarta residui locali e applica aggiornamento)
+    if ok:
+        lines.append("\n$ git reset --hard FETCH_HEAD")
+        code, out = _run(["git", "reset", "--hard", "FETCH_HEAD"], cwd=BASE_DIR)
+        lines.append(out.rstrip())
+        if code != 0:
+            ok = False
 
     # 2. pip install (only if git pull succeeded and there were changes)
     if ok:
