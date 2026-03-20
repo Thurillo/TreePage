@@ -58,6 +58,15 @@ cp "$REPO_DIR/deploy/treepage-script@.service"  /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now treepage
 
+# ── 5b. Sudoers: permette a treepage di riavviare il servizio ─
+SUDOERS_FILE="/etc/sudoers.d/treepage"
+cat > "$SUDOERS_FILE" <<'SUDOERS'
+# Permette all'utente treepage di riavviare i servizi TreePage senza password
+treepage ALL=(ALL) NOPASSWD: /bin/systemctl restart treepage
+treepage ALL=(ALL) NOPASSWD: /bin/systemctl restart treepage-script@*
+SUDOERS
+chmod 0440 "$SUDOERS_FILE"
+
 # ── 6. Nginx ──────────────────────────────────────────────
 echo "[6/7] Configurazione Nginx..."
 cp "$REPO_DIR/nginx/treepage.conf" /etc/nginx/sites-available/treepage

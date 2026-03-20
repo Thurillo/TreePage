@@ -6,9 +6,10 @@ All routes except /login and /logout require an active admin session.
 
 import re
 import shutil
+import subprocess
 import pathlib
 
-from fastapi import APIRouter, Request, Form, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -109,6 +110,78 @@ async def change_password(
     save_auth(auth)
     flash(request, "Password aggiornata con successo.", "success")
     return RedirectResponse(url="/admin/", status_code=303)
+
+
+# ── Update & restart ────────────────────────────────────────────────────────
+
+def _run(cmd: list[str], cwd: pathlib.Path) -> tuple[int, str]:
+    """Run a command, return (returncode, combined stdout+stderr)."""
+    result = subprocess.run(
+        cmd, cwd=str(cwd),
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, timeout=120,
+    )
+    return result.returncode, result.stdout
+
+
+@router.get("/update", response_class=HTMLResponse)
+async def update_page(request: Request):
+    if r := _check_admin(request):
+        return r
+    return templates.TemplateResponse("admin/update.html", {
+        "request": request,
+        "output": None,
+    })
+
+
+@router.post("/update", response_class=HTMLResponse)
+async def run_update(request: Request):
+    if r := _check_admin(request):
+        return r
+
+    lines: list[str] = []
+    ok = True
+
+    # 1. git pull
+    lines.append("$ git pull")
+    code, out = _run(["git", "pull"], cwd=BASE_DIR)
+    lines.append(out.rstrip())
+    if code != 0:
+        ok = False
+
+    # 2. pip install (only if git pull succeeded or --force)
+    if ok:
+        venv_pip = BASE_DIR / "venv" / "bin" / "pip"
+        pip_cmd = str(venv_pip) if venv_pip.exists() else "pip"
+        lines.append(f"\n$ {pip_cmd} install -r requirements.txt")
+        code, out = _run(
+            [pip_cmd, "install", "-r", "requirements.txt"],
+            cwd=BASE_DIR,
+        )
+        lines.append(out.rstrip())
+        if code != 0:
+            ok = False
+
+    return templates.TemplateResponse("admin/update.html", {
+        "request": request,
+        "output": "\n".join(lines),
+        "ok": ok,
+    })
+
+
+@router.post("/restart")
+async def restart_service(request: Request, background_tasks: BackgroundTasks):
+    if r := _check_admin(request):
+        return r
+
+    def _do_restart():
+        import time
+        time.sleep(2)
+        subprocess.run(["sudo", "systemctl", "restart", "treepage"], check=False)
+
+    background_tasks.add_task(_do_restart)
+    flash(request, "Riavvio in corso — ricarica la pagina tra qualche secondo.", "warning")
+    return RedirectResponse(url="/admin/login", status_code=303)
 
 
 # ── Admin index ────────────────────────────────────────────────────────────

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Aggiornamento – TreePage Admin{% endblock %}
+
+{% block content %}
+{% set flashes = pop_flashes(request) %}
+{% for msg in flashes %}
+<div class="flash flash--{{ msg.category }}">{{ msg.text }}</div>
+{% endfor %}
+
+<div class="page-header">
+  <h1>🔄 Aggiornamento applicazione</h1>
+  <p class="page-header__sub">Scarica l'ultima versione dal repository e riavvia il servizio.</p>
+</div>
+
+<div class="admin-layout">
+
+  <div class="admin-section" style="max-width:680px">
+    <h2 style="margin-bottom:1.25rem">Aggiorna codice</h2>
+    <p class="muted" style="margin-bottom:1.25rem">
+      Esegue <code>git pull</code> e <code>pip install -r requirements.txt</code>.
+      Il servizio continua a funzionare durante l'aggiornamento.
+      Usa il pulsante Riavvia in seguito per applicare le modifiche.
+    </p>
+
+    <form method="post" action="/admin/update">
+      <button class="btn btn--primary" type="submit">▶ Esegui aggiornamento</button>
+      <a class="btn" href="/admin/" style="margin-left:.5rem">← Torna all'admin</a>
+    </form>
+
+    {% if output is not none %}
+    <div class="update-output {% if ok %}update-output--ok{% else %}update-output--err{% endif %}">
+      <div class="update-output__header">
+        {% if ok %}✅ Completato{% else %}❌ Errore{% endif %}
+      </div>
+      <pre class="update-output__pre">{{ output }}</pre>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="admin-section" style="max-width:680px">
+    <h2 style="margin-bottom:1.25rem">Riavvia servizio</h2>
+    <p class="muted" style="margin-bottom:1.25rem">
+      Riavvia il processo FastAPI per applicare le modifiche al codice.
+      La connessione si interromperà per 2–3 secondi, poi il servizio torna online.
+    </p>
+    <form method="post" action="/admin/restart"
+          onsubmit="return confirm('Il servizio si riavvierà e la sessione verrà interrotta per qualche secondo. Continuare?')">
+      <button class="btn btn--danger" type="submit">⚡ Riavvia ora</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

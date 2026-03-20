@@ -303,6 +303,35 @@ label input, label select { color: var(--text); }
   overflow-x: auto;
 }
 
+/* ── Update output ────────────────────────────────────── */
+.update-output {
+  margin-top: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.update-output--ok  { border-color: #20c997; }
+.update-output--err { border-color: #fa5252; }
+
+.update-output__header {
+  padding: .5rem 1rem;
+  font-size: .85rem; font-weight: 600;
+}
+.update-output--ok  .update-output__header { background: rgba(32,201,151,.12); color: #20c997; }
+.update-output--err .update-output__header { background: rgba(250,82,82,.12);  color: #fa5252; }
+
+.update-output__pre {
+  margin: 0;
+  padding: 1rem;
+  background: var(--bg);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: .8rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* ── Admin link cell ──────────────────────────────────── */
 .fm-link-cell {
   display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
