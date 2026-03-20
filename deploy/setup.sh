@@ -20,7 +20,7 @@ apt-get update -q
 apt-get install -y -q \
     python3 python3-pip python3-venv \
     nginx \
-    curl git
+    curl git rsync
 
 # ── 2. Utente di sistema ──────────────────────────────────
 echo "[2/7] Creazione utente di sistema '$TREEPAGE_USER'..."
@@ -73,9 +73,9 @@ systemctl reload nginx
 # ── 7. Fine ───────────────────────────────────────────────
 echo "[7/7] Installazione completata!"
 echo ""
-echo "  Dashboard:  http://$(hostname -I | awk '{print $1}')/"
-echo "  Admin:      http://$(hostname -I | awk '{print $1}')/admin/"
-echo "  API docs:   http://$(hostname -I | awk '{print $1}')/api/docs"
+echo "  Dashboard:  http://$(hostname -I | cut -d' ' -f1)/"
+echo "  Admin:      http://$(hostname -I | cut -d' ' -f1)/admin/"
+echo "  API docs:   http://$(hostname -I | cut -d' ' -f1)/api/docs"
 echo ""
 echo "  ⚠  Primo accesso al pannello admin:"
 echo "     Utente:   admin"

@@ -21,7 +21,7 @@ WorkingDirectory=/opt/treepage/scripts/%i
 
 # Legge la porta dal registro YAML e avvia uvicorn
 ExecStart=/bin/bash -c '\
-  PORT=$(python3 -c "import yaml; d=yaml.safe_load(open(\"/opt/treepage/scripts_registry.yaml\")); print(d[\"scripts\"][\"%i\"][\"port\"])") && \
+  PORT=$(/opt/treepage/venv/bin/python3 -c "import yaml; d=yaml.safe_load(open(\"/opt/treepage/scripts_registry.yaml\")); print(d[\"scripts\"][\"%i\"][\"port\"])") && \
   /opt/treepage/venv/bin/uvicorn main:app \
     --host 127.0.0.1 \
     --port $PORT \
