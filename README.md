@@ -100,35 +100,58 @@ Al primo avvio viene creato automaticamente `auth.yaml` con le credenziali prede
 
 ---
 
-## Installazione su Debian 13 LXC (produzione)
+## Installazione su Debian 12/13 LXC (produzione)
 
 ### Prerequisiti
 
-- Container LXC o VM con **Debian 13 (Trixie)**
-- Accesso root
-- Connessione internet
+| Requisito | Dettaglio |
+|-----------|-----------|
+| Sistema operativo | Debian 12 (Bookworm) o Debian 13 (Trixie) |
+| Accesso | Root o utente con `sudo` |
+| Connessione internet | Necessaria durante l'installazione |
 
-### Installazione
+> Tutto il software necessario (Python 3, pip, venv, Nginx, git) viene **installato automaticamente** dallo script. Non è necessario installare nulla prima, tranne `git` per clonare il repository.
+
+### Passo 1 — Installa git e clona il repository
+
+Su una Debian appena installata `git` potrebbe non essere presente. Installalo con:
+
+```bash
+apt-get update && apt-get install -y git
+```
+
+Poi clona il repository:
 
 ```bash
 git clone https://github.com/Thurillo/TreePage.git
 cd TreePage
+```
+
+### Passo 2 — Esegui lo script di installazione
+
+```bash
 sudo bash deploy/setup.sh
 ```
 
-Lo script esegue automaticamente i seguenti passi:
+Lo script esegue automaticamente tutto il resto:
 
-| Step | Operazione |
-|------|------------|
-| 1/7  | Installazione dipendenze di sistema (Python 3, pip, venv, Nginx, git) |
-| 2/7  | Creazione utente di sistema `treepage` (nologin) |
-| 3/7  | Copia dei file in `/opt/treepage` |
-| 4/7  | Creazione virtualenv e installazione dipendenze Python |
-| 5/7  | Installazione e avvio servizi systemd |
-| 6/7  | Configurazione Nginx come reverse proxy |
-| 7/7  | Verifica e output URL di accesso |
+| Step | Cosa fa |
+|------|---------|
+| 1/7 | Installa Python 3, pip, venv, Nginx, curl, git |
+| 2/7 | Crea l'utente di sistema `treepage` (nologin, nessuna shell) |
+| 3/7 | Copia i file dell'applicazione in `/opt/treepage` |
+| 4/7 | Crea il virtualenv Python e installa le dipendenze |
+| 5/7 | Installa e **abilita** i servizi systemd (avvio automatico al boot) |
+| 6/7 | Configura Nginx come reverse proxy e lo avvia |
+| 7/7 | Mostra l'URL di accesso e le credenziali predefinite |
 
-Al termine compare l'URL con cui accedere all'applicazione.
+Al termine viene mostrato l'indirizzo IP con cui accedere all'app.
+
+### Passo 3 — Primo accesso e cambio password
+
+1. Aprire `http://<IP-del-server>/admin/`
+2. Fare login con `admin` / `admin`
+3. Cliccare 🔑 in alto a destra e **cambiare subito la password**
 
 ### URL principali
 
@@ -140,6 +163,64 @@ Al termine compare l'URL con cui accedere all'applicazione.
 | `http://<host>/admin/` | Pannello admin (richiede login) |
 | `http://<host>/admin/login` | Pagina di accesso |
 | `http://<host>/api/docs` | Documentazione API automatica |
+
+---
+
+## Avvio automatico al riavvio
+
+**Non è necessario fare nulla dopo un riavvio del server.** TreePage e Nginx sono registrati come servizi systemd e si avviano automaticamente.
+
+Questo è garantito da:
+
+| Servizio | Abilitato automaticamente |
+|----------|--------------------------|
+| `treepage` (backend FastAPI) | ✅ `systemctl enable` eseguito da `setup.sh` |
+| `nginx` (reverse proxy) | ✅ abilitato di default su Debian |
+
+Per verificarlo:
+
+```bash
+systemctl is-enabled treepage   # output: enabled
+systemctl is-enabled nginx      # output: enabled
+```
+
+### Microservizi Python
+
+I microservizi aggiuntivi (`treepage-script@`) **non** sono abilitati automaticamente. Dopo averli registrati nel pannello admin, abilita l'avvio automatico con:
+
+```bash
+sudo systemctl enable treepage-script@nome-script
+```
+
+---
+
+## Persistenza dei dati
+
+**No, non si perdono dati in caso di riavvio improvviso.**
+
+Tutti i dati di TreePage sono salvati come **file su disco**, non in memoria:
+
+| Dove | Cosa contiene |
+|------|---------------|
+| `/opt/treepage/users/*.yaml` | Dashboard e tile di ogni operatore |
+| `/opt/treepage/projects/` | Pagine HTML ospitate |
+| `/opt/treepage/scripts/` | Codice dei microservizi Python |
+| `/opt/treepage/scripts_registry.yaml` | Registro dei microservizi |
+| `/opt/treepage/auth.yaml` | Credenziali admin |
+
+L'unica cosa che viene persa al riavvio sono le **sessioni di login attive**: dopo il riavvio del server l'amministratore dovrà fare nuovamente login nel pannello admin. Nessun dato utente viene perso.
+
+### Backup consigliato
+
+Per un backup completo è sufficiente copiare l'intera directory `/opt/treepage`:
+
+```bash
+# Backup manuale
+tar -czf treepage-backup-$(date +%F).tar.gz /opt/treepage
+
+# Backup automatico giornaliero con cron (aggiungere con: crontab -e)
+0 3 * * * tar -czf /root/treepage-backup-$(date +\%F).tar.gz /opt/treepage
+```
 
 ---
 
@@ -204,7 +285,7 @@ tiles:
 
 ```bash
 # Copia locale → server
-scp -r ./mia-app/* treepage@<host>:/opt/treepage/projects/mappa/
+scp -r ./mia-app/* root@<host>:/opt/treepage/projects/mappa/
 ```
 
 Il progetto sarà accessibile su `/projects/mappa/` (servito direttamente da Nginx in produzione).
@@ -242,12 +323,12 @@ Admin → sezione **Script** → **Aggiungi script**:
 - Nome visualizzato
 - Porta (es. `8001`)
 
-### 3. Avviare il servizio systemd
+### 3. Avviare e abilitare il servizio systemd
 
 ```bash
-sudo systemctl start  treepage-script@mio-script
-sudo systemctl enable treepage-script@mio-script   # avvio automatico
-sudo systemctl status treepage-script@mio-script
+sudo systemctl start  treepage-script@mio-script   # avvia ora
+sudo systemctl enable treepage-script@mio-script   # avvio automatico al boot
+sudo systemctl status treepage-script@mio-script   # verifica stato
 ```
 
 Il microservizio sarà proxato su `/api/scripts/mio-script/`.
@@ -283,18 +364,24 @@ sudo systemctl restart treepage
 ```bash
 # Stato dei servizi
 systemctl status treepage
+systemctl status nginx
 systemctl status treepage-script@example-script
 
 # Log in tempo reale
 journalctl -u treepage -f
 journalctl -u treepage-script@example-script -f
 
-# Riavvio
+# Verificare l'avvio automatico
+systemctl is-enabled treepage     # → enabled
+systemctl is-enabled nginx        # → enabled
+
+# Riavvio manuale
 systemctl restart treepage
 
-# Avviare/fermare uno script
+# Avviare/fermare/abilitare uno script
 systemctl start  treepage-script@mio-script
 systemctl stop   treepage-script@mio-script
+systemctl enable treepage-script@mio-script
 ```
 
 ---
