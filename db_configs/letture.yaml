@@ -1,0 +1,8 @@
+# Credenziali di connessione MySQL per il progetto Letture
+# Questo file NON è accessibile dal web (fuori dalla cartella /projects)
+
+host: "localhost"
+port: 3306
+user: "utente_db"
+password: "password_db"
+database: "nome_database"
