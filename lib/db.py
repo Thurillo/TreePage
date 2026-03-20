@@ -13,20 +13,20 @@ Usage in any router:
 
 import pathlib
 
-import pymysql
-import pymysql.cursors
 import yaml
 
 _CONFIG_DIR = pathlib.Path(__file__).parent.parent / "db_configs"
 
 
-def get_connection(config_name: str) -> pymysql.connections.Connection:
+def get_connection(config_name: str):
     """
     Open and return a MySQL connection configured by db_configs/<config_name>.yaml.
 
     The YAML file must contain: host, user, password, database.
     Optional: port (default 3306).
     """
+    import pymysql
+    import pymysql.cursors
     cfg_path = _CONFIG_DIR / f"{config_name}.yaml"
     if not cfg_path.exists():
         raise FileNotFoundError(
