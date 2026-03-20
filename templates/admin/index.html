@@ -5,7 +5,10 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>&#9881;&#65039; Pannello di amministrazione</h1>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+    <h1>&#9881;&#65039; Pannello di amministrazione</h1>
+    <a class="btn" href="/admin/files/">📁 File Manager</a>
+  </div>
 </div>
 
 <div class="admin-layout">
@@ -20,18 +23,23 @@
     {% if users %}
     <table class="admin-table">
       <thead>
-        <tr><th>Icona</th><th>Nome</th><th>Slug</th><th>Tiles</th><th>Azioni</th></tr>
+        <tr><th>Icona</th><th>Nome</th><th>Link personale</th><th>Tiles</th><th>Azioni</th></tr>
       </thead>
       <tbody>
         {% for u in users %}
+        {% set dash_url = request.base_url ~ "dashboard/" ~ u.slug %}
         <tr>
           <td>{{ u.icon }}</td>
           <td>{{ u.name }}</td>
-          <td><code>{{ u.slug }}</code></td>
+          <td>
+            <span class="fm-link-cell">
+              <a href="/dashboard/{{ u.slug }}" target="_blank" class="small">{{ dash_url }}</a>
+              <button class="btn btn--sm" onclick="copyToClipboard('{{ dash_url }}')" title="Copia link">📋</button>
+            </span>
+          </td>
           <td>{{ u.tile_count }}</td>
           <td class="actions">
             <a class="btn btn--sm" href="/admin/users/{{ u.slug }}">Modifica</a>
-            <a class="btn btn--sm" href="/dashboard/{{ u.slug }}" target="_blank">Apri</a>
             <form method="post" action="/admin/users/{{ u.slug }}/delete" onsubmit="return confirm('Eliminare {{ u.name }}?')">
               <button class="btn btn--sm btn--danger" type="submit">Elimina</button>
             </form>

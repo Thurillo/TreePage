@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == "edit" %}Modifica {{ filename }} – TreePage{% else %}File Manager – TreePage{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set flashes = pop_flashes(request) %}
+{% for msg in flashes %}
+<div class="flash flash--{{ msg.category }}">{{ msg.text }}</div>
+{% endfor %}
+
+<div class="page-header">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+    <h1>{% if mode == "edit" %}✏️ Modifica file{% else %}📁 File Manager{% endif %}</h1>
+    <a class="btn btn--sm" href="/admin/">← Admin</a>
+  </div>
+
+  {# Breadcrumb #}
+  <nav class="fm-breadcrumb">
+    {% for crumb in breadcrumbs %}
+      {% if not loop.last %}
+        <a href="/admin/files/?path={{ crumb.path }}">{{ crumb.name }}</a>
+        <span class="fm-breadcrumb__sep">/</span>
+      {% else %}
+        <span class="fm-breadcrumb__current">{{ crumb.name }}</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+</div>
+
+{# ── EDIT MODE ────────────────────────────────────────── #}
+{% if mode == "edit" %}
+<div class="admin-section">
+  <div class="admin-section__header">
+    <h2>{{ filename }}</h2>
+    <div style="display:flex;gap:.5rem">
+      <a class="btn btn--sm" href="/admin/files/download?path={{ current_path }}">⬇ Scarica</a>
+      <a class="btn btn--sm" href="/admin/files/?path={{ parent_path }}">← Cartella</a>
+    </div>
+  </div>
+  <form method="post" action="/admin/files/save">
+    <input type="hidden" name="path" value="{{ current_path }}" />
+    <textarea
+      class="input fm-editor"
+      name="content"
+      spellcheck="false"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+    >{{ content | e }}</textarea>
+    <div class="admin-actions" style="margin-top:.75rem">
+      <button class="btn btn--primary" type="submit">💾 Salva</button>
+      <a class="btn" href="/admin/files/?path={{ parent_path }}">Annulla</a>
+    </div>
+  </form>
+</div>
+
+{# ── BROWSE MODE ──────────────────────────────────────── #}
+{% else %}
+<div class="admin-layout">
+
+  {# File listing #}
+  <div class="admin-section">
+    <div class="admin-section__header">
+      <h2>Contenuto</h2>
+      <span class="muted">{{ items | length }} elementi</span>
+    </div>
+
+    {% if items %}
+    <table class="admin-table fm-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Nome</th>
+          <th>Dimensione</th>
+          <th class="actions">Azioni</th>
+        </tr>
+      </thead>
+      <tbody>
+        {# Parent directory link #}
+        {% if current_path %}
+        <tr>
+          <td>📂</td>
+          <td>
+            {% set parts = current_path.split('/') %}
+            {% set parent = parts[:-1] | join('/') %}
+            <a href="/admin/files/?path={{ parent }}">.. (su)</a>
+          </td>
+          <td>—</td>
+          <td></td>
+        </tr>
+        {% endif %}
+
+        {% for item in items %}
+        <tr>
+          <td class="fm-icon">
+            {% if item.is_dir %}📁{% elif item.editable %}📄{% else %}📎{% endif %}
+          </td>
+          <td>
+            {% if item.is_dir %}
+              <a href="/admin/files/?path={{ item.path }}"><strong>{{ item.name }}/</strong></a>
+            {% elif item.editable %}
+              <a href="/admin/files/edit?path={{ item.path }}">{{ item.name }}</a>
+            {% else %}
+              {{ item.name }}
+            {% endif %}
+          </td>
+          <td class="muted">{{ fmt_size(item.size) }}</td>
+          <td class="actions">
+            {% if item.editable %}
+            <a class="btn btn--sm" href="/admin/files/edit?path={{ item.path }}">✏️</a>
+            {% endif %}
+            {% if not item.is_dir %}
+            <a class="btn btn--sm" href="/admin/files/download?path={{ item.path }}">⬇</a>
+            {% endif %}
+            <form method="post" action="/admin/files/delete" style="display:inline"
+                  onsubmit="return confirm('Eliminare {{ item.name }}?')">
+              <input type="hidden" name="path" value="{{ item.path }}" />
+              <button class="btn btn--sm btn--danger" type="submit">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted" style="padding:.5rem 0">Cartella vuota.</p>
+    {% endif %}
+  </div>
+
+  {# Actions: upload, new folder, new file #}
+  <div class="admin-section">
+    <h2 style="margin-bottom:1.25rem">Operazioni</h2>
+    <div class="fm-actions-grid">
+
+      {# Upload #}
+      <div>
+        <h3 class="fm-subheader">⬆ Carica file</h3>
+        <form method="post" action="/admin/files/upload" enctype="multipart/form-data"
+              class="fm-form">
+          <input type="hidden" name="path" value="{{ current_path }}" />
+          <label>
+            <input class="input" type="file" name="files" multiple />
+          </label>
+          <button class="btn btn--primary btn--sm" type="submit">Carica</button>
+        </form>
+      </div>
+
+      {# New folder #}
+      <div>
+        <h3 class="fm-subheader">📁 Nuova cartella</h3>
+        <form method="post" action="/admin/files/mkdir" class="fm-form">
+          <input type="hidden" name="path" value="{{ current_path }}" />
+          <input class="input" type="text" name="name" placeholder="nome-cartella"
+                 pattern="[a-zA-Z0-9_\-\.]+" required />
+          <button class="btn btn--sm" type="submit">Crea</button>
+        </form>
+      </div>
+
+      {# New file #}
+      <div>
+        <h3 class="fm-subheader">📄 Nuovo file</h3>
+        <form method="post" action="/admin/files/newfile" class="fm-form">
+          <input type="hidden" name="path" value="{{ current_path }}" />
+          <input class="input" type="text" name="name" placeholder="index.html"
+                 pattern="[a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]+" required />
+          <button class="btn btn--sm" type="submit">Crea</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endif %}
+{% endblock %}

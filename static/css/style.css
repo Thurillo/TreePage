@@ -266,6 +266,55 @@ label input, label select { color: var(--text); }
 .small   { font-size: .8rem; }
 .hidden  { display: none !important; }
 
+/* ── File Manager ─────────────────────────────────────── */
+.fm-breadcrumb {
+  display: flex; align-items: center; gap: .35rem;
+  margin-top: .6rem; font-size: .875rem; color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.fm-breadcrumb a { color: var(--accent); }
+.fm-breadcrumb a:hover { text-decoration: underline; }
+.fm-breadcrumb__sep { opacity: .4; }
+.fm-breadcrumb__current { color: var(--text); font-weight: 600; }
+
+.fm-table .fm-icon { width: 2rem; text-align: center; font-size: 1rem; }
+.fm-table td { vertical-align: middle; }
+
+.fm-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+.fm-subheader { font-size: .85rem; font-weight: 600; color: var(--text-muted); margin-bottom: .6rem; }
+
+.fm-form {
+  display: flex; gap: .5rem; align-items: flex-end; flex-wrap: wrap;
+}
+.fm-form .input { flex: 1; min-width: 0; }
+
+.fm-editor {
+  width: 100%;
+  min-height: 420px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: .85rem;
+  line-height: 1.6;
+  resize: vertical;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ── Admin link cell ──────────────────────────────────── */
+.fm-link-cell {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+}
+.fm-link-cell a {
+  color: var(--text-muted);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: .78rem;
+  word-break: break-all;
+}
+.fm-link-cell a:hover { color: var(--accent); }
+
 /* ── Login page ───────────────────────────────────────── */
 body.login-page { display: flex; flex-direction: column; }
 body.login-page .topbar__link[href="/admin/"] { display: none; }

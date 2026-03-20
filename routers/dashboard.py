@@ -1,6 +1,6 @@
 """
 TreePage - Dashboard router
-Handles public user dashboards and the users listing page.
+Handles personal user dashboards (no public listing).
 """
 
 from fastapi import APIRouter, Request, HTTPException
@@ -8,31 +8,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import pathlib
 
-from config import list_users, load_user, normalize_tile, pop_flashes
+from config import load_user, normalize_tile, pop_flashes
 
 BASE_DIR = pathlib.Path(__file__).parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["pop_flashes"] = pop_flashes
 
 router = APIRouter(tags=["dashboard"])
-
-
-@router.get("/dashboard/", response_class=HTMLResponse)
-async def users_list(request: Request):
-    """Show all available dashboards."""
-    users = []
-    for slug in list_users():
-        data = load_user(slug) or {}
-        users.append({
-            "slug": slug,
-            "name": data.get("name", slug),
-            "description": data.get("description", ""),
-            "icon": data.get("icon", "👤"),
-        })
-    return templates.TemplateResponse(
-        "users_list.html",
-        {"request": request, "users": users},
-    )
 
 
 @router.get("/dashboard/{slug}", response_class=HTMLResponse)
