@@ -60,6 +60,7 @@ systemctl enable --now treepage
 
 # ── 5b. Sudoers: permette a treepage di riavviare il servizio ─
 SUDOERS_FILE="/etc/sudoers.d/treepage"
+mkdir -p /etc/sudoers.d
 cat > "$SUDOERS_FILE" <<'SUDOERS'
 # Permette all'utente treepage di riavviare i servizi TreePage senza password
 treepage ALL=(ALL) NOPASSWD: /bin/systemctl restart treepage
