@@ -149,6 +149,40 @@
     </div>
 
     <details class="collapsible">
+      <summary class="btn btn--sm">ℹ️ Come funziona</summary>
+      <div class="card-form" style="font-size:.88rem;line-height:1.7">
+        <p style="margin-bottom:.75rem;font-weight:600">Per collegare una pagina HTML a un database MySQL, segui questi 3 passi:</p>
+
+        <p><strong>Passo 1 — Crea il file credenziali</strong> <span class="muted">(una volta per ogni DB, mai su git)</span></p>
+        <p class="muted" style="margin:.25rem 0 .5rem 0">Crea il file <code>db_configs/&lt;nome&gt;.yaml</code> sul server con questo contenuto:</p>
+        <pre style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.6rem .9rem;font-size:.82rem;margin-bottom:1rem">host: "192.168.1.10"
+port: 3306
+user: "utente_mysql"
+password: "la_password"
+database: "nome_database"</pre>
+
+        <p><strong>Passo 2 — Registra la query</strong></p>
+        <p class="muted" style="margin:.25rem 0 .5rem 0">Usa il form <em>"+ Aggiungi query"</em> qui sotto. Dai un nome univoco, scegli il config dal menu e scrivi la SQL.<br>
+        Per i parametri usa la sintassi <code>%(nome_param)s</code> — il valore verrà passato dalla pagina HTML:</p>
+        <pre style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.6rem .9rem;font-size:.82rem;margin-bottom:1rem">SELECT * FROM tabella WHERE id = %(id)s</pre>
+
+        <p><strong>Passo 3 — Chiama l'endpoint dal tuo HTML</strong></p>
+        <p class="muted" style="margin:.25rem 0 .5rem 0">Nella tua pagina <code>projects/&lt;nome&gt;/index.html</code> usa <code>fetch()</code>:</p>
+        <pre style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.6rem .9rem;font-size:.82rem">// SELECT → GET con parametri nella query string
+fetch('/api/db/nome_query?id=123')
+  .then(r => r.json())
+  .then(data => console.log(data.rows))
+
+// INSERT / UPDATE / DELETE → POST con body JSON
+fetch('/api/db/nome_query', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id: 123 })
+}).then(r => r.json()).then(data => console.log(data.affected))</pre>
+      </div>
+    </details>
+
+    <details class="collapsible">
       <summary class="btn btn--sm">+ Aggiungi query</summary>
       <form class="card-form" method="post" action="/admin/db-query/add">
         <div class="form-row">
