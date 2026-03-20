@@ -11,7 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import pathlib
 
 from config import init_auth, load_auth
-from routers import dashboard, admin, scripts_proxy, files as files_router
+from routers import dashboard, admin, scripts_proxy, files as files_router, letture as letture_router
 
 BASE_DIR = pathlib.Path(__file__).parent
 
@@ -49,6 +49,7 @@ app.include_router(dashboard.router)
 app.include_router(admin.router, prefix="/admin")
 app.include_router(files_router.router, prefix="/admin/files")
 app.include_router(scripts_proxy.router, prefix="/api/scripts")
+app.include_router(letture_router.router)
 
 
 # ── Root redirect ──────────────────────────────────────────────────────────
