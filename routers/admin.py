@@ -116,10 +116,11 @@ async def change_password(
 
 def _run(cmd: list[str], cwd: pathlib.Path) -> tuple[int, str]:
     """Run a command, return (returncode, combined stdout+stderr)."""
+    env = {**__import__("os").environ, "GIT_TERMINAL_PROMPT": "0"}
     result = subprocess.run(
         cmd, cwd=str(cwd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, timeout=120,
+        text=True, timeout=120, env=env,
     )
     return result.returncode, result.stdout
 
@@ -142,6 +143,28 @@ async def run_update(request: Request):
     lines: list[str] = []
     ok = True
 
+    # 0. Check that BASE_DIR is a git repo
+    if not (BASE_DIR / ".git").exists():
+        lines.append(
+            "Errore: questa directory non è un repository git.\n"
+            "L'installazione precedente usava rsync (senza .git).\n\n"
+            "Per abilitare gli aggiornamenti automatici, riesegui il setup:\n\n"
+            "  cd <cartella-sorgente>\n"
+            "  sudo bash deploy/setup.sh\n\n"
+            "Il nuovo setup.sh usa 'git clone' e mantiene il .git in /opt/treepage.\n"
+            "In alternativa, come root sul server:\n\n"
+            "  cd /opt/treepage\n"
+            "  git init\n"
+            "  git remote add origin <URL-del-repo>\n"
+            "  git fetch origin\n"
+            "  git reset --hard origin/main"
+        )
+        return templates.TemplateResponse("admin/update.html", {
+            "request": request,
+            "output": "\n".join(lines),
+            "ok": False,
+        })
+
     # 1. git pull
     lines.append("$ git pull")
     code, out = _run(["git", "pull"], cwd=BASE_DIR)
@@ -149,7 +172,7 @@ async def run_update(request: Request):
     if code != 0:
         ok = False
 
-    # 2. pip install (only if git pull succeeded or --force)
+    # 2. pip install (only if git pull succeeded)
     if ok:
         venv_pip = BASE_DIR / "venv" / "bin" / "pip"
         pip_cmd = str(venv_pip) if venv_pip.exists() else "pip"

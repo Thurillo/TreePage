@@ -29,12 +29,26 @@ if ! id "$TREEPAGE_USER" &>/dev/null; then
 fi
 
 # ── 3. Directory di installazione ────────────────────────
-echo "[3/7] Copia file in $INSTALL_DIR..."
-mkdir -p "$INSTALL_DIR"
+echo "[3/7] Configurazione directory $INSTALL_DIR..."
 
-# Copia tutto tranne la directory deploy (già eseguita)
-rsync -a --exclude '.git' --exclude 'deploy' --exclude '__pycache__' \
-    "$REPO_DIR/" "$INSTALL_DIR/"
+REMOTE_URL=$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null || true)
+CURRENT_BRANCH=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+
+if [ -n "$REMOTE_URL" ]; then
+    if [ -d "$INSTALL_DIR/.git" ]; then
+        echo "     Repository esistente – aggiornamento..."
+        git -C "$INSTALL_DIR" pull origin "$CURRENT_BRANCH"
+    else
+        echo "     Clone da $REMOTE_URL (branch: $CURRENT_BRANCH)..."
+        rm -rf "$INSTALL_DIR"
+        git clone --branch "$CURRENT_BRANCH" "$REMOTE_URL" "$INSTALL_DIR"
+    fi
+else
+    echo "     Nessun remote trovato – copia locale con rsync..."
+    mkdir -p "$INSTALL_DIR"
+    rsync -a --exclude '.git' --exclude 'deploy' --exclude '__pycache__' \
+        "$REPO_DIR/" "$INSTALL_DIR/"
+fi
 
 chown -R "$TREEPAGE_USER:$TREEPAGE_USER" "$INSTALL_DIR"
 
