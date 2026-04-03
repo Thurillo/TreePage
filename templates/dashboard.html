@@ -24,7 +24,7 @@
       <a
         class="tile tile--{{ tile.type }}{% if tile.color %} tile--custom{% endif %}"
         href="{{ tile.url }}"
-        {% if tile.type == 'external' %}target="_blank" rel="noopener noreferrer"{% endif %}
+        target="_blank" rel="noopener noreferrer"
         {% if tile.color %}style="--tile-color: {{ tile.color }}"{% endif %}
       >
         <span class="tile__icon">{{ tile.icon }}</span>

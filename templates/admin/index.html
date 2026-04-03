@@ -182,15 +182,15 @@ fetch('/api/db/nome_query', {
       </div>
     </details>
 
-    <details class="collapsible">
+    <details class="collapsible" id="dbq-details">
       <summary class="btn btn--sm">+ Aggiungi query</summary>
-      <form class="card-form" method="post" action="/admin/db-query/add">
+      <form class="card-form" method="post" action="/admin/db-query/add" id="dbq-form">
         <div class="form-row">
           <label>Nome (slug univoco)
-            <input class="input" type="text" name="name" placeholder="letture_cerca" required pattern="[a-z0-9_-]+" />
+            <input class="input" type="text" name="name" id="dbq-name" placeholder="letture_cerca" required pattern="[a-z0-9_-]+" />
           </label>
           <label>Config DB
-            <select class="input" name="config" required>
+            <select class="input" name="config" id="dbq-config" required>
               {% for cfg in db_configs_list %}
               <option value="{{ cfg }}">{{ cfg }}</option>
               {% endfor %}
@@ -202,10 +202,10 @@ fetch('/api/db/nome_query', {
         </div>
         <div class="form-row">
           <label style="width:100%">SQL
-            <textarea class="input" name="sql" rows="8" placeholder="SELECT ... FROM ..." required style="font-family:monospace;font-size:.85rem;resize:vertical"></textarea>
+            <textarea class="input" name="sql" id="dbq-sql" rows="8" placeholder="SELECT ... FROM ..." required style="font-family:monospace;font-size:.85rem;resize:vertical"></textarea>
           </label>
         </div>
-        <button class="btn btn--primary" type="submit">Salva query</button>
+        <button class="btn btn--primary" type="submit" id="dbq-submit">Salva query</button>
       </form>
     </details>
 
@@ -220,6 +220,7 @@ fetch('/api/db/nome_query', {
           <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:.8rem">{{ q.sql | replace('\n', ' ') | truncate(80) }}</td>
           <td><code>/api/db/{{ qname }}</code></td>
           <td class="actions">
+            <button class="btn btn--sm" onclick="editQuery('{{ qname }}', '{{ q.config }}', {{ q.sql | tojson }})">Modifica</button>
             <form method="post" action="/admin/db-query/{{ qname }}/delete" onsubmit="return confirm('Rimuovere la query {{ qname }}?')">
               <button class="btn btn--sm btn--danger" type="submit">Rimuovi</button>
             </form>
@@ -234,4 +235,19 @@ fetch('/api/db/nome_query', {
   </section>
 
 </div><!-- /admin-layout -->
+
+<script>
+function editQuery(name, config, sql) {
+  const details = document.getElementById('dbq-details');
+  details.open = true;
+  const nameInput = document.getElementById('dbq-name');
+  nameInput.value = name;
+  nameInput.readOnly = true;
+  document.getElementById('dbq-config').value = config;
+  document.getElementById('dbq-sql').value = sql;
+  document.getElementById('dbq-form').action = '/admin/db-query/' + name + '/edit';
+  document.getElementById('dbq-submit').textContent = 'Aggiorna query';
+  details.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+</script>
 {% endblock %}

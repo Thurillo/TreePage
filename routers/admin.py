@@ -548,6 +548,24 @@ async def add_db_query(
     return RedirectResponse(url="/admin/", status_code=303)
 
 
+@router.post("/db-query/{name}/edit")
+async def edit_db_query(
+    request: Request,
+    name: str,
+    config: str = Form(...),
+    sql: str = Form(...),
+):
+    if r := _check_admin(request):
+        return r
+    queries = _load_db_queries()
+    if name not in queries:
+        raise HTTPException(404, f"Query '{name}' non trovata")
+    queries[name] = {"config": config, "sql": sql}
+    _save_db_queries(queries)
+    flash(request, f"Query '{name}' aggiornata.", "success")
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
 @router.post("/db-query/{name}/delete")
 async def delete_db_query(request: Request, name: str):
     if r := _check_admin(request):

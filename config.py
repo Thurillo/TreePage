@@ -87,12 +87,8 @@ def get_script(name: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 def list_projects() -> list[str]:
-    """Return list of project directory names that contain an index.html."""
-    return sorted(
-        d.name
-        for d in PROJECTS_DIR.iterdir()
-        if d.is_dir() and (d / "index.html").exists()
-    )
+    """Return list of all project directory names inside PROJECTS_DIR."""
+    return sorted(d.name for d in PROJECTS_DIR.iterdir() if d.is_dir())
 
 
 # ---------------------------------------------------------------------------
