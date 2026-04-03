@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import os
 import pathlib
+import json
 
 import yaml
 from fastapi import APIRouter, BackgroundTasks, Request, Form, HTTPException
@@ -35,6 +36,7 @@ from config import (
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["pop_flashes"] = pop_flashes
+templates.env.filters["tojson"] = json.dumps
 
 router = APIRouter(tags=["admin"])
 
