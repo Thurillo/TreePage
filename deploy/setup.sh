@@ -53,6 +53,22 @@ fi
 
 chown -R "$TREEPAGE_USER:$TREEPAGE_USER" "$INSTALL_DIR"
 
+# ── 3b. Dati utente: copia i default solo se non esistono già ────
+echo "     Ripristino dati utente (se assenti)..."
+DEFAULTS_DIR="$REPO_DIR/deploy/defaults"
+if [ -d "$DEFAULTS_DIR/users" ]; then
+    mkdir -p "$INSTALL_DIR/users"
+    for f in "$DEFAULTS_DIR/users/"*.yaml; do
+        [ -f "$f" ] || continue
+        dest="$INSTALL_DIR/users/$(basename "$f")"
+        if [ ! -f "$dest" ]; then
+            cp "$f" "$dest"
+            echo "     Creato utente default: $(basename "$f")"
+        fi
+    done
+fi
+chown -R "$TREEPAGE_USER:$TREEPAGE_USER" "$INSTALL_DIR/users" 2>/dev/null || true
+
 # ── 4. Virtual environment Python ────────────────────────
 echo "[4/7] Creazione virtual environment Python..."
 python3 -m venv "$INSTALL_DIR/venv"

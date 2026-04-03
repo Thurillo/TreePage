@@ -13,6 +13,9 @@ venv/
 # Auth config (contains password in plaintext)
 auth.yaml
 
+# Dashboard utente — dati locali, non sovrascrivere con gli aggiornamenti
+users/*.yaml
+
 # Credenziali database — mai sincronizzare
 db_configs/
 

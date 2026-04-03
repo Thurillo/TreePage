@@ -237,13 +237,40 @@ async def run_update(request: Request):
                 "ok": True,
             })
 
-    # 1c. git reset --hard FETCH_HEAD (scarta residui locali e applica aggiornamento)
+    # 1c. Salva i dati utente che git reset --hard sovrascrive
+    _DATA_GLOBS = [
+        "users/*.yaml",
+        "db_queries.yaml",
+        "db_configs/*.yaml",
+    ]
+    saved_data: dict[str, bytes] = {}
+    if ok:
+        for pattern in _DATA_GLOBS:
+            for fpath in BASE_DIR.glob(pattern):
+                saved_data[str(fpath.relative_to(BASE_DIR))] = fpath.read_bytes()
+        if saved_data:
+            lines.append(
+                f"\n[backup] {len(saved_data)} file dati salvati prima del reset: "
+                + ", ".join(saved_data.keys())
+            )
+
+    # 1d. git reset --hard FETCH_HEAD (scarta residui locali e applica aggiornamento)
     if ok:
         lines.append("\n$ git reset --hard FETCH_HEAD")
         code, out = _run(["git", "reset", "--hard", "FETCH_HEAD"], cwd=BASE_DIR)
         lines.append(out.rstrip())
         if code != 0:
             ok = False
+
+    # 1e. Ripristina i dati utente dopo il reset
+    if ok and saved_data:
+        for rel_path, content in saved_data.items():
+            target = BASE_DIR / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+        lines.append(
+            f"[restore] {len(saved_data)} file dati ripristinati dopo il reset."
+        )
 
     # 2. pip install (only if git pull succeeded and there were changes)
     if ok:
