@@ -3,10 +3,13 @@ TreePage - Configuration management
 Handles reading/writing YAML configs for users and scripts registry.
 """
 
+import hashlib
 import pathlib
 import secrets
 import yaml
 from typing import Any
+
+_PBKDF2_ITERS = 260_000
 
 BASE_DIR = pathlib.Path(__file__).parent
 USERS_DIR = BASE_DIR / "users"
@@ -95,12 +98,33 @@ def list_projects() -> list[str]:
 # Auth
 # ---------------------------------------------------------------------------
 
+def hash_password(plain: str) -> str:
+    """Return a PBKDF2-SHA256 hash string: pbkdf2$sha256$<iter>$<salt>$<hash>."""
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", plain.encode(), salt.encode(), _PBKDF2_ITERS)
+    return f"pbkdf2$sha256${_PBKDF2_ITERS}${salt}${dk.hex()}"
+
+
+def verify_password(plain: str, stored: str) -> bool:
+    """Verify *plain* against *stored* (PBKDF2 hash or legacy plaintext)."""
+    if stored.startswith("pbkdf2$"):
+        _, algo, iters, salt, expected = stored.split("$", 4)
+        dk = hashlib.pbkdf2_hmac(algo, plain.encode(), salt.encode(), int(iters))
+        return secrets.compare_digest(dk.hex(), expected)
+    # Legacy plaintext — accept and let the caller re-hash
+    return plain == stored
+
+
+def is_hashed(stored: str) -> bool:
+    return stored.startswith("pbkdf2$")
+
+
 def init_auth() -> None:
     """Create auth.yaml with default credentials if it does not exist."""
     if not AUTH_FILE.exists():
         _save_yaml(AUTH_FILE, {
             "username": "admin",
-            "password": "admin",
+            "password": hash_password("admin"),
             "secret_key": secrets.token_hex(32),
         })
 

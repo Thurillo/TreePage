@@ -30,6 +30,9 @@ from config import (
     normalize_tile,
     load_auth,
     save_auth,
+    hash_password,
+    verify_password,
+    is_hashed,
     flash,
     pop_flashes,
 )
@@ -93,7 +96,11 @@ async def login(
     password: str = Form(...),
 ):
     auth = load_auth()
-    if username == auth["username"] and password == auth["password"]:
+    if username == auth["username"] and verify_password(password, auth["password"]):
+        # Migrate plaintext password to bcrypt hash on first successful login
+        if not is_hashed(auth["password"]):
+            auth["password"] = hash_password(password)
+            save_auth(auth)
         request.session["admin"] = True
         return RedirectResponse(url="/admin/", status_code=303)
     flash(request, "Credenziali non valide.", "error")
@@ -123,16 +130,16 @@ async def change_password(
     if r := _check_admin(request):
         return r
     auth = load_auth()
-    if old_password != auth["password"]:
+    if not verify_password(old_password, auth["password"]):
         flash(request, "Password attuale non corretta.", "error")
         return RedirectResponse(url="/admin/change-password", status_code=303)
     if new_password != confirm_password:
         flash(request, "Le nuove password non coincidono.", "error")
         return RedirectResponse(url="/admin/change-password", status_code=303)
-    if len(new_password) < 4:
-        flash(request, "La nuova password deve essere di almeno 4 caratteri.", "error")
+    if len(new_password) < 8:
+        flash(request, "La nuova password deve essere di almeno 8 caratteri.", "error")
         return RedirectResponse(url="/admin/change-password", status_code=303)
-    auth["password"] = new_password
+    auth["password"] = hash_password(new_password)
     save_auth(auth)
     flash(request, "Password aggiornata con successo.", "success")
     return RedirectResponse(url="/admin/", status_code=303)
@@ -487,6 +494,77 @@ async def move_tile(request: Request, slug: str, index: int, direction: str = Fo
         tiles[index], tiles[index + 1] = tiles[index + 1], tiles[index]
     data["tiles"] = tiles
     save_user(slug, data)
+    return RedirectResponse(url=f"/admin/users/{slug}", status_code=303)
+
+
+@router.get("/users/{slug}/tiles/{index}/edit", response_class=HTMLResponse)
+async def edit_tile_form(request: Request, slug: str, index: int):
+    if r := _check_admin(request):
+        return r
+    data = load_user(slug)
+    if data is None:
+        raise HTTPException(404)
+    tiles = data.get("tiles", [])
+    if index < 0 or index >= len(tiles):
+        raise HTTPException(400, "Indice tile non valido")
+    tile = normalize_tile(tiles[index])
+    return templates.TemplateResponse(
+        "admin/user_edit.html",
+        {
+            "request": request,
+            "user": data,
+            "slug": slug,
+            "tiles": [normalize_tile(t) for t in tiles],
+            "projects": list_projects(),
+            "scripts": load_registry(),
+            "edit_tile": tile,
+            "edit_tile_index": index,
+        },
+    )
+
+
+@router.post("/users/{slug}/tiles/{index}/update")
+async def update_tile(
+    request: Request,
+    slug: str,
+    index: int,
+    title: str = Form(...),
+    tile_type: str = Form(...),
+    url: str = Form(""),
+    project: str = Form(""),
+    script: str = Form(""),
+    icon: str = Form("🔗"),
+    description: str = Form(""),
+    category: str = Form("Generale"),
+    color: str = Form(""),
+):
+    if r := _check_admin(request):
+        return r
+    data = load_user(slug)
+    if data is None:
+        raise HTTPException(404)
+    tiles = data.get("tiles", [])
+    if index < 0 or index >= len(tiles):
+        raise HTTPException(400, "Indice tile non valido")
+    tile: dict = {
+        "title": title,
+        "type": tile_type,
+        "icon": icon,
+        "description": description,
+        "category": category,
+    }
+    if tile_type == "project" and project:
+        tile["project"] = project
+    elif tile_type == "script" and script:
+        tile["script"] = script
+    else:
+        tile["url"] = url
+    if color:
+        tile["color"] = color
+    tiles[index] = tile
+    data["tiles"] = tiles
+    save_user(slug, data)
+    flash(request, f"Tile '{title}' aggiornata.", "success")
     return RedirectResponse(url=f"/admin/users/{slug}", status_code=303)
 
 
