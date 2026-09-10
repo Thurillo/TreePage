@@ -64,6 +64,8 @@
             <input type="hidden" name="direction" value="down" />
             <button class="btn btn--sm" type="submit" {% if loop.last %}disabled{% endif %}>&#8595;</button>
           </form>
+          <button class="btn btn--sm"
+            onclick="editTile({{ loop.index0 }}, {{ tile | tojson }})">&#9998;</button>
           <form method="post" action="/admin/users/{{ slug }}/tiles/{{ loop.index0 }}/delete"
                 onsubmit="return confirm('Eliminare tile {{ tile.title }}?')">
             <button class="btn btn--sm btn--danger" type="submit">&#10005;</button>
@@ -76,13 +78,23 @@
     <p class="muted">Nessuna tile. Aggiungi servizi usando il form qui sotto.</p>
     {% endif %}
 
-    <!-- Add tile form -->
-    <details class="collapsible" id="add-tile-form">
-      <summary class="btn btn--primary btn--sm">+ Aggiungi tile</summary>
-      <form class="card-form" method="post" action="/admin/users/{{ slug }}/tiles/add" id="tile-form">
+    <!-- Add / Edit tile form -->
+    <details class="collapsible" id="tile-details">
+      <summary class="btn btn--primary btn--sm" id="tile-summary">+ Aggiungi tile</summary>
+      <form class="card-form" method="post"
+            action="/admin/users/{{ slug }}/tiles/add"
+            id="tile-form"
+            data-add-action="/admin/users/{{ slug }}/tiles/add"
+            data-update-action="/admin/users/{{ slug }}/tiles/__IDX__/update">
+
+        <div id="tile-edit-banner" class="hidden" style="margin-bottom:.75rem;padding:.5rem .75rem;background:rgba(92,124,250,.1);border:1px solid var(--accent);border-radius:var(--radius-sm);font-size:.85rem;display:flex;align-items:center;justify-content:space-between">
+          <span>&#9998; Modalità modifica</span>
+          <button type="button" class="btn btn--sm" onclick="resetTileForm()">&#10005; Annulla</button>
+        </div>
+
         <div class="form-row">
           <label>Titolo
-            <input class="input" type="text" name="title" required placeholder="Nome servizio" />
+            <input class="input" type="text" name="title" id="tile-title" required placeholder="Nome servizio" />
           </label>
           <label>Tipo
             <select class="input" name="tile_type" id="tile-type-select" onchange="tileTypeChanged(this.value)">
@@ -96,14 +108,14 @@
         <!-- External URL field -->
         <div class="form-row" id="field-url">
           <label class="full-width">URL esterno
-            <input class="input" type="url" name="url" placeholder="https://esempio.com" />
+            <input class="input" type="url" name="url" id="tile-url" placeholder="https://esempio.com" />
           </label>
         </div>
 
         <!-- Project select -->
         <div class="form-row hidden" id="field-project">
           <label class="full-width">Progetto ospitato
-            <select class="input" name="project">
+            <select class="input" name="project" id="tile-project">
               <option value="">-- seleziona --</option>
               {% for p in projects %}
               <option value="{{ p }}">{{ p }}</option>
@@ -115,7 +127,7 @@
         <!-- Script select -->
         <div class="form-row hidden" id="field-script">
           <label class="full-width">Script Python
-            <select class="input" name="script">
+            <select class="input" name="script" id="tile-script">
               <option value="">-- seleziona --</option>
               {% for sname, s in scripts.items() %}
               <option value="{{ sname }}">{{ s.name }} (porta {{ s.port }})</option>
@@ -126,10 +138,10 @@
 
         <div class="form-row">
           <label>Icona (emoji)
-            <input class="input" type="text" name="icon" value="🔗" placeholder="🔗" />
+            <input class="input" type="text" name="icon" id="tile-icon" value="🔗" placeholder="🔗" />
           </label>
           <label>Categoria
-            <input class="input" type="text" name="category" value="Generale" placeholder="Generale" list="categories-list" />
+            <input class="input" type="text" name="category" id="tile-category" value="Generale" placeholder="Generale" list="categories-list" />
             <datalist id="categories-list">
               {% set all_cats = tiles | map(attribute='category') | list %}
               {% for cat in all_cats | unique %}
@@ -138,17 +150,17 @@
             </datalist>
           </label>
           <label>Colore personalizzato (hex/CSS)
-            <input class="input" type="text" name="color" placeholder="#1a73e8 (opzionale)" />
+            <input class="input" type="text" name="color" id="tile-color" placeholder="#1a73e8 (opzionale)" />
           </label>
         </div>
 
         <div class="form-row">
           <label class="full-width">Descrizione
-            <input class="input" type="text" name="description" placeholder="Breve descrizione (opzionale)" />
+            <input class="input" type="text" name="description" id="tile-description" placeholder="Breve descrizione (opzionale)" />
           </label>
         </div>
 
-        <button class="btn btn--primary" type="submit">Aggiungi tile</button>
+        <button class="btn btn--primary" type="submit" id="tile-submit">Aggiungi tile</button>
       </form>
     </details>
   </section>
@@ -170,6 +182,63 @@ function tileTypeChanged(type) {
   document.getElementById('field-url').classList.toggle('hidden', type !== 'external');
   document.getElementById('field-project').classList.toggle('hidden', type !== 'project');
   document.getElementById('field-script').classList.toggle('hidden', type !== 'script');
+}
+
+function editTile(index, tile) {
+  const form = document.getElementById('tile-form');
+  const details = document.getElementById('tile-details');
+  const banner = document.getElementById('tile-edit-banner');
+  const summary = document.getElementById('tile-summary');
+  const submit = document.getElementById('tile-submit');
+
+  // Set form action to update endpoint
+  const updateAction = form.dataset.updateAction.replace('__IDX__', index);
+  form.action = updateAction;
+
+  // Fill fields
+  document.getElementById('tile-title').value = tile.title || '';
+  document.getElementById('tile-icon').value = tile.icon || '🔗';
+  document.getElementById('tile-category').value = tile.category || 'Generale';
+  document.getElementById('tile-color').value = tile.color || '';
+  document.getElementById('tile-description').value = tile.description || '';
+
+  const typeSelect = document.getElementById('tile-type-select');
+  typeSelect.value = tile.type || 'external';
+  tileTypeChanged(tile.type || 'external');
+
+  if (tile.type === 'project') {
+    document.getElementById('tile-project').value = tile.project || '';
+  } else if (tile.type === 'script') {
+    document.getElementById('tile-script').value = tile.script || '';
+  } else {
+    document.getElementById('tile-url').value = tile.url || '';
+  }
+
+  // Switch UI to edit mode
+  banner.classList.remove('hidden');
+  banner.style.display = 'flex';
+  summary.textContent = '✏️ Modifica tile';
+  submit.textContent = 'Salva modifiche';
+  details.open = true;
+  details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetTileForm() {
+  const form = document.getElementById('tile-form');
+  const banner = document.getElementById('tile-edit-banner');
+  const summary = document.getElementById('tile-summary');
+  const submit = document.getElementById('tile-submit');
+
+  form.action = form.dataset.addAction;
+  form.reset();
+  document.getElementById('tile-icon').value = '🔗';
+  document.getElementById('tile-category').value = 'Generale';
+  tileTypeChanged('external');
+
+  banner.classList.add('hidden');
+  banner.style.display = '';
+  summary.textContent = '+ Aggiungi tile';
+  submit.textContent = 'Aggiungi tile';
 }
 </script>
 {% endblock %}
