@@ -142,6 +142,86 @@
   </section>
 
 
+  <!-- ── DB CONNECTIONS ──────────────────────────────────── -->
+  <section class="admin-section" id="db-connections">
+    <div class="admin-section__header">
+      <h2>🔌 Connessioni Database</h2>
+    </div>
+
+    <details class="collapsible" id="dbcfg-details">
+      <summary class="btn btn--sm">+ Aggiungi / modifica connessione</summary>
+      <form class="card-form" method="post" action="/admin/db-config/add" id="dbcfg-form">
+        <div class="form-row">
+          <label>Slug (ID univoco)
+            <input class="input" type="text" name="name" id="dbcfg-name" placeholder="mysql_letture" required pattern="[a-z0-9_-]+" />
+          </label>
+          <label>Nome visualizzato
+            <input class="input" type="text" name="display_name" id="dbcfg-display-name" placeholder="MySQL Letture (opzionale)" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Tipo DB
+            <select class="input" name="db_type" id="dbcfg-type" onchange="dbcfgUpdatePort(this)">
+              <option value="mysql">MySQL</option>
+              <option value="mssql">MS SQL Server</option>
+            </select>
+          </label>
+          <label>Host / IP
+            <input class="input" type="text" name="host" id="dbcfg-host" placeholder="192.168.1.10" required />
+          </label>
+          <label>Porta <span class="muted">(opzionale)</span>
+            <input class="input" type="number" name="port" id="dbcfg-port" placeholder="3306" min="1" max="65535" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Utente
+            <input class="input" type="text" name="user" id="dbcfg-user" placeholder="sa" required autocomplete="off" />
+          </label>
+          <label>Password <span id="dbcfg-pwd-hint" class="muted" style="display:none">(vuoto = non modificare)</span>
+            <input class="input" type="password" name="password" id="dbcfg-password" placeholder="••••••••" required autocomplete="new-password" />
+          </label>
+          <label>Database
+            <input class="input" type="text" name="database" id="dbcfg-database" placeholder="nome_database" required />
+          </label>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn--primary" type="submit" id="dbcfg-submit">Salva connessione</button>
+          <button type="button" class="btn btn--sm" onclick="dbcfgReset()" id="dbcfg-cancel" style="display:none">Annulla</button>
+        </div>
+      </form>
+    </details>
+
+    {% if db_configs %}
+    <table class="admin-table">
+      <thead>
+        <tr><th>Slug</th><th>Nome</th><th>Tipo</th><th>Host</th><th>Porta</th><th>Database</th><th>Azioni</th></tr>
+      </thead>
+      <tbody>
+        {% for cname, c in db_configs.items() %}
+        <tr>
+          <td><code>{{ cname }}</code></td>
+          <td>{{ c.get('name', '') }}</td>
+          <td><code>{{ (c.get('type', 'mysql') | upper) }}</code></td>
+          <td>{{ c.get('host', '') }}</td>
+          <td>{{ c.get('port', '—') }}</td>
+          <td>{{ c.get('database', '') }}</td>
+          <td class="actions">
+            <button class="btn btn--sm" id="dbcfg-test-{{ cname }}" onclick="dbcfgTest('{{ cname }}')">Test</button>
+            <button class="btn btn--sm" onclick="dbcfgEdit('{{ cname }}', {{ c | tojson }})">Modifica</button>
+            <form method="post" action="/admin/db-config/{{ cname }}/delete" onsubmit="return confirm('Rimuovere la connessione {{ cname }}?')">
+              <button class="btn btn--sm btn--danger" type="submit">Elimina</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Nessuna connessione configurata. Usa il form sopra per aggiungere la prima.</p>
+    {% endif %}
+  </section>
+
+
   <!-- ── DB QUERIES ──────────────────────────────────────── -->
   <section class="admin-section">
     <div class="admin-section__header">
@@ -248,6 +328,81 @@ function editQuery(name, config, sql) {
   document.getElementById('dbq-form').action = '/admin/db-query/' + name + '/edit';
   document.getElementById('dbq-submit').textContent = 'Aggiorna query';
   details.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+// ── DB Connections ──────────────────────────────────────────────────────────
+function dbcfgUpdatePort(sel) {
+  const portInput = document.getElementById('dbcfg-port');
+  if (!portInput.value || portInput.dataset.auto === '1') {
+    portInput.value = sel.value === 'mssql' ? '1433' : '3306';
+    portInput.dataset.auto = '1';
+  }
+}
+
+function dbcfgEdit(name, cfg) {
+  const details = document.getElementById('dbcfg-details');
+  details.open = true;
+  const nameInput = document.getElementById('dbcfg-name');
+  nameInput.value = name;
+  nameInput.readOnly = true;
+  document.getElementById('dbcfg-display-name').value = cfg.name || '';
+  document.getElementById('dbcfg-type').value = cfg.type || 'mysql';
+  document.getElementById('dbcfg-host').value = cfg.host || '';
+  const portInput = document.getElementById('dbcfg-port');
+  portInput.value = cfg.port || '';
+  portInput.dataset.auto = '0';
+  document.getElementById('dbcfg-user').value = cfg.user || '';
+  const pwd = document.getElementById('dbcfg-password');
+  pwd.value = '';
+  pwd.required = false;
+  document.getElementById('dbcfg-pwd-hint').style.display = 'inline';
+  document.getElementById('dbcfg-database').value = cfg.database || '';
+  document.getElementById('dbcfg-form').action = '/admin/db-config/' + name + '/edit';
+  document.getElementById('dbcfg-submit').textContent = 'Aggiorna connessione';
+  document.getElementById('dbcfg-cancel').style.display = '';
+  details.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function dbcfgReset() {
+  const form = document.getElementById('dbcfg-form');
+  form.reset();
+  form.action = '/admin/db-config/add';
+  const nameInput = document.getElementById('dbcfg-name');
+  nameInput.readOnly = false;
+  document.getElementById('dbcfg-password').required = true;
+  document.getElementById('dbcfg-pwd-hint').style.display = 'none';
+  document.getElementById('dbcfg-port').dataset.auto = '0';
+  document.getElementById('dbcfg-submit').textContent = 'Salva connessione';
+  document.getElementById('dbcfg-cancel').style.display = 'none';
+  document.getElementById('dbcfg-details').open = false;
+}
+
+async function dbcfgTest(name) {
+  const btn = document.getElementById('dbcfg-test-' + name);
+  const orig = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/admin/db-config/' + name + '/test');
+    const data = await r.json();
+    if (data.ok) {
+      btn.textContent = '✅ OK';
+      btn.style.color = 'var(--success, green)';
+    } else {
+      btn.textContent = '❌ Errore';
+      btn.style.color = 'var(--danger, red)';
+      alert('Errore connessione ' + name + ':\n' + data.error);
+    }
+  } catch(e) {
+    btn.textContent = '❌';
+    btn.style.color = 'var(--danger, red)';
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.color = '';
+    }, 6000);
+  }
 }
 </script>
 {% endblock %}

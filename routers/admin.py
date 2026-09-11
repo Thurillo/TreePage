@@ -13,7 +13,7 @@ import json
 
 import yaml
 from fastapi import APIRouter, BackgroundTasks, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from config import (
@@ -35,6 +35,10 @@ from config import (
     is_hashed,
     flash,
     pop_flashes,
+    list_db_configs,
+    load_db_config,
+    save_db_config,
+    delete_db_config,
 )
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -46,7 +50,6 @@ router = APIRouter(tags=["admin"])
 _SLUG_RE = re.compile(r"^[a-z0-9_-]+$")
 
 _DB_QUERIES_FILE = BASE_DIR / "db_queries.yaml"
-_DB_CONFIGS_DIR = BASE_DIR / "db_configs"
 
 
 def _load_db_queries() -> dict:
@@ -60,12 +63,6 @@ def _save_db_queries(data: dict) -> None:
         yaml.dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False),
         encoding="utf-8",
     )
-
-
-def _list_db_configs() -> list[str]:
-    if not _DB_CONFIGS_DIR.exists():
-        return []
-    return sorted(p.stem for p in _DB_CONFIGS_DIR.glob("*.yaml"))
 
 
 def _validate_slug(slug: str) -> None:
@@ -331,6 +328,11 @@ async def admin_index(request: Request):
             "icon": data.get("icon", "👤"),
             "tile_count": len(data.get("tiles", [])),
         })
+    db_configs_safe = {}
+    for cname in list_db_configs():
+        cfg = load_db_config(cname) or {}
+        db_configs_safe[cname] = {k: v for k, v in cfg.items() if k != "password"}
+
     return templates.TemplateResponse(
         "admin/index.html",
         {
@@ -339,7 +341,8 @@ async def admin_index(request: Request):
             "projects": list_projects(),
             "scripts": load_registry(),
             "db_queries": _load_db_queries(),
-            "db_configs_list": _list_db_configs(),
+            "db_configs_list": list_db_configs(),
+            "db_configs": db_configs_safe,
         },
     )
 
@@ -634,6 +637,91 @@ async def delete_project(request: Request, name: str):
     if project_dir.exists():
         shutil.rmtree(project_dir)
     return RedirectResponse(url="/admin/", status_code=303)
+
+
+# ── DB Configs CRUD ─────────────────────────────────────────────────────────
+
+@router.post("/db-config/add")
+async def add_db_config_route(
+    request: Request,
+    name: str = Form(...),
+    display_name: str = Form(""),
+    db_type: str = Form("mysql"),
+    host: str = Form(...),
+    port: str = Form(""),
+    user: str = Form(...),
+    password: str = Form(...),
+    database: str = Form(...),
+):
+    if r := _check_admin(request):
+        return r
+    _validate_slug(name)
+    if load_db_config(name) is not None:
+        flash(request, f"Connessione '{name}' già esistente.", "error")
+        return RedirectResponse(url="/admin/#db-connections", status_code=303)
+    cfg: dict = {"type": db_type, "host": host, "user": user, "password": password, "database": database}
+    if display_name:
+        cfg["name"] = display_name
+    if port:
+        cfg["port"] = int(port)
+    save_db_config(name, cfg)
+    flash(request, f"Connessione '{name}' salvata.", "success")
+    return RedirectResponse(url="/admin/#db-connections", status_code=303)
+
+
+@router.post("/db-config/{name}/edit")
+async def edit_db_config_route(
+    request: Request,
+    name: str,
+    display_name: str = Form(""),
+    db_type: str = Form("mysql"),
+    host: str = Form(...),
+    port: str = Form(""),
+    user: str = Form(...),
+    password: str = Form(""),
+    database: str = Form(...),
+):
+    if r := _check_admin(request):
+        return r
+    cfg = load_db_config(name)
+    if cfg is None:
+        raise HTTPException(404, f"Connessione '{name}' non trovata")
+    cfg["type"] = db_type
+    cfg["host"] = host
+    cfg["user"] = user
+    cfg["database"] = database
+    if display_name:
+        cfg["name"] = display_name
+    elif "name" in cfg:
+        del cfg["name"]
+    if port:
+        cfg["port"] = int(port)
+    elif "port" in cfg:
+        del cfg["port"]
+    if password:
+        cfg["password"] = password
+    save_db_config(name, cfg)
+    flash(request, f"Connessione '{name}' aggiornata.", "success")
+    return RedirectResponse(url="/admin/#db-connections", status_code=303)
+
+
+@router.post("/db-config/{name}/delete")
+async def delete_db_config_route(request: Request, name: str):
+    if r := _check_admin(request):
+        return r
+    if not delete_db_config(name):
+        raise HTTPException(404, f"Connessione '{name}' non trovata")
+    flash(request, f"Connessione '{name}' rimossa.", "success")
+    return RedirectResponse(url="/admin/#db-connections", status_code=303)
+
+
+@router.get("/db-config/{name}/test")
+async def test_db_config_route(request: Request, name: str):
+    if r := _check_admin(request):
+        return r
+    from lib.db import test_connection
+    ok, error = test_connection(name)
+    return JSONResponse({"ok": ok, "error": error})
 
 
 # ── DB Queries CRUD ─────────────────────────────────────────────────────────

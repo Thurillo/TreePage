@@ -15,12 +15,14 @@ BASE_DIR = pathlib.Path(__file__).parent
 USERS_DIR = BASE_DIR / "users"
 PROJECTS_DIR = BASE_DIR / "projects"
 SCRIPTS_DIR = BASE_DIR / "scripts"
+DB_CONFIGS_DIR = BASE_DIR / "db_configs"
 REGISTRY_FILE = BASE_DIR / "scripts_registry.yaml"
 AUTH_FILE = BASE_DIR / "auth.yaml"
 
 USERS_DIR.mkdir(exist_ok=True)
 PROJECTS_DIR.mkdir(exist_ok=True)
 SCRIPTS_DIR.mkdir(exist_ok=True)
+DB_CONFIGS_DIR.mkdir(exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +165,37 @@ TILE_DEFAULTS: dict[str, Any] = {
     "color": "",
 }
 
+
+# ---------------------------------------------------------------------------
+# DB Configs
+# ---------------------------------------------------------------------------
+
+def list_db_configs() -> list[str]:
+    return sorted(p.stem for p in DB_CONFIGS_DIR.glob("*.yaml"))
+
+
+def load_db_config(name: str) -> dict | None:
+    path = DB_CONFIGS_DIR / f"{name}.yaml"
+    if not path.exists():
+        return None
+    return _load_yaml(path)
+
+
+def save_db_config(name: str, data: dict) -> None:
+    _save_yaml(DB_CONFIGS_DIR / f"{name}.yaml", data)
+
+
+def delete_db_config(name: str) -> bool:
+    path = DB_CONFIGS_DIR / f"{name}.yaml"
+    if path.exists():
+        path.unlink()
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Tile helpers
+# ---------------------------------------------------------------------------
 
 def normalize_tile(tile: dict) -> dict:
     """Fill in missing fields with defaults."""
