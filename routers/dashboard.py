@@ -31,16 +31,12 @@ async def user_dashboard(request: Request, slug: str):
         cat = tile["category"]
         categories.setdefault(cat, []).append(tile)
 
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
-            "user": {
-                "slug": slug,
-                "name": data.get("name", slug),
-                "description": data.get("description", ""),
-                "icon": data.get("icon", "👤"),
-            },
-            "categories": categories,
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "user": {
+            "slug": slug,
+            "name": data.get("name", slug),
+            "description": data.get("description", ""),
+            "icon": data.get("icon", "👤"),
         },
-    )
+        "categories": categories,
+    })

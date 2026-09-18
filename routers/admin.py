@@ -83,7 +83,7 @@ def _check_admin(request: Request):
 async def login_page(request: Request):
     if request.session.get("admin"):
         return RedirectResponse(url="/admin/", status_code=303)
-    return templates.TemplateResponse("admin/login.html", {"request": request})
+    return templates.TemplateResponse(request, "admin/login.html")
 
 
 @router.post("/login")
@@ -114,7 +114,7 @@ async def logout(request: Request):
 async def change_password_page(request: Request):
     if r := _check_admin(request):
         return r
-    return templates.TemplateResponse("admin/change_password.html", {"request": request})
+    return templates.TemplateResponse(request, "admin/change_password.html")
 
 
 @router.post("/change-password")
@@ -159,10 +159,7 @@ def _run(cmd: list[str], cwd: pathlib.Path) -> tuple[int, str]:
 async def update_page(request: Request):
     if r := _check_admin(request):
         return r
-    return templates.TemplateResponse("admin/update.html", {
-        "request": request,
-        "output": None,
-    })
+    return templates.TemplateResponse(request, "admin/update.html", {"output": None})
 
 
 @router.post("/update", response_class=HTMLResponse)
@@ -189,8 +186,7 @@ async def run_update(request: Request):
             "  git fetch origin\n"
             "  git reset --hard origin/main"
         )
-        return templates.TemplateResponse("admin/update.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "admin/update.html", {
             "output": "\n".join(lines),
             "ok": False,
         })
@@ -210,8 +206,7 @@ async def run_update(request: Request):
             f"Correggi i permessi come root sul server:\n\n"
             f"  chown -R treepage:treepage /opt/treepage/.git"
         )
-        return templates.TemplateResponse("admin/update.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "admin/update.html", {
             "output": "\n".join(lines),
             "ok": False,
         })
@@ -237,8 +232,7 @@ async def run_update(request: Request):
         if diff_code == 0:
             lines.append("Already up to date.")
             lines.append("\n✓ Nessun aggiornamento disponibile. Il codice è già all'ultima versione.")
-            return templates.TemplateResponse("admin/update.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "admin/update.html", {
                 "output": "\n".join(lines),
                 "ok": True,
             })
@@ -291,8 +285,7 @@ async def run_update(request: Request):
         if code != 0:
             ok = False
 
-    return templates.TemplateResponse("admin/update.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin/update.html", {
         "output": "\n".join(lines),
         "ok": ok,
     })
@@ -333,18 +326,14 @@ async def admin_index(request: Request):
         cfg = load_db_config(cname) or {}
         db_configs_safe[cname] = {k: v for k, v in cfg.items() if k != "password"}
 
-    return templates.TemplateResponse(
-        "admin/index.html",
-        {
-            "request": request,
-            "users": users,
-            "projects": list_projects(),
-            "scripts": load_registry(),
-            "db_queries": _load_db_queries(),
-            "db_configs_list": list_db_configs(),
-            "db_configs": db_configs_safe,
-        },
-    )
+    return templates.TemplateResponse(request, "admin/index.html", {
+        "users": users,
+        "projects": list_projects(),
+        "scripts": load_registry(),
+        "db_queries": _load_db_queries(),
+        "db_configs_list": list_db_configs(),
+        "db_configs": db_configs_safe,
+    })
 
 
 # ── Users CRUD ─────────────────────────────────────────────────────────────
@@ -353,10 +342,9 @@ async def admin_index(request: Request):
 async def new_user_form(request: Request):
     if r := _check_admin(request):
         return r
-    return templates.TemplateResponse(
-        "admin/user_edit.html",
-        {"request": request, "user": None, "slug": "", "projects": list_projects(), "scripts": load_registry()},
-    )
+    return templates.TemplateResponse(request, "admin/user_edit.html", {
+        "user": None, "slug": "", "projects": list_projects(), "scripts": load_registry(),
+    })
 
 
 @router.post("/users/new")
@@ -384,17 +372,13 @@ async def edit_user_form(request: Request, slug: str):
     if data is None:
         raise HTTPException(404, f"Utente '{slug}' non trovato")
     tiles = [normalize_tile(t) for t in data.get("tiles", [])]
-    return templates.TemplateResponse(
-        "admin/user_edit.html",
-        {
-            "request": request,
-            "user": data,
-            "slug": slug,
-            "tiles": tiles,
-            "projects": list_projects(),
-            "scripts": load_registry(),
-        },
-    )
+    return templates.TemplateResponse(request, "admin/user_edit.html", {
+        "user": data,
+        "slug": slug,
+        "tiles": tiles,
+        "projects": list_projects(),
+        "scripts": load_registry(),
+    })
 
 
 @router.post("/users/{slug}/update")
@@ -511,19 +495,15 @@ async def edit_tile_form(request: Request, slug: str, index: int):
     if index < 0 or index >= len(tiles):
         raise HTTPException(400, "Indice tile non valido")
     tile = normalize_tile(tiles[index])
-    return templates.TemplateResponse(
-        "admin/user_edit.html",
-        {
-            "request": request,
-            "user": data,
-            "slug": slug,
-            "tiles": [normalize_tile(t) for t in tiles],
-            "projects": list_projects(),
-            "scripts": load_registry(),
-            "edit_tile": tile,
-            "edit_tile_index": index,
-        },
-    )
+    return templates.TemplateResponse(request, "admin/user_edit.html", {
+        "user": data,
+        "slug": slug,
+        "tiles": [normalize_tile(t) for t in tiles],
+        "projects": list_projects(),
+        "scripts": load_registry(),
+        "edit_tile": tile,
+        "edit_tile_index": index,
+    })
 
 
 @router.post("/users/{slug}/tiles/{index}/update")
