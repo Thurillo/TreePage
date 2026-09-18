@@ -165,6 +165,36 @@
     </details>
   </section>
 
+  <!-- ── Dashboard password ────────────────────────────── -->
+  <section class="admin-section">
+    <div class="admin-section__header">
+      <h2>&#128274; Accesso con password</h2>
+    </div>
+    <p class="muted" style="margin-bottom:1rem">
+      {% if user.password_hash %}
+      Questa dashboard è <strong style="color:var(--accent)">protetta da password</strong>.
+      {% else %}
+      Questa dashboard è <strong>accessibile senza password</strong>.
+      {% endif %}
+    </p>
+    <form class="card-form" method="post" action="/admin/users/{{ slug }}/set-password">
+      <div class="form-row">
+        <label>Nuova password <span class="muted">(lascia vuoto per non modificare)</span>
+          <input class="input" type="password" name="password" placeholder="••••••••" autocomplete="new-password" />
+        </label>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+        <button class="btn btn--primary btn--sm" type="submit">Imposta password</button>
+        {% if user.password_hash %}
+        <button class="btn btn--danger btn--sm" type="submit" name="remove_password" value="1"
+                onclick="return confirm('Rimuovere la password? La dashboard sarà accessibile a tutti.')">
+          Rimuovi password
+        </button>
+        {% endif %}
+      </div>
+    </form>
+  </section>
+
   <div class="admin-actions">
     <a class="btn" href="/dashboard/{{ slug }}" target="_blank">&#128065; Apri dashboard</a>
     <form method="post" action="/admin/users/{{ slug }}/delete" onsubmit="return confirm('Eliminare tutta la dashboard di {{ user.name }}?')">

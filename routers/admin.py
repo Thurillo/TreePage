@@ -320,6 +320,7 @@ async def admin_index(request: Request):
             "name": data.get("name", slug),
             "icon": data.get("icon", "👤"),
             "tile_count": len(data.get("tiles", [])),
+            "has_password": bool(data.get("password_hash")),
         })
     db_configs_safe = {}
     for cname in list_db_configs():
@@ -408,6 +409,31 @@ async def delete_user_route(request: Request, slug: str):
     if not delete_user(slug):
         raise HTTPException(404, f"Utente '{slug}' non trovato")
     return RedirectResponse(url="/admin/", status_code=303)
+
+
+@router.post("/users/{slug}/set-password")
+async def set_dashboard_password(
+    request: Request,
+    slug: str,
+    password: str = Form(""),
+    remove_password: str = Form(""),
+):
+    if r := _check_admin(request):
+        return r
+    data = load_user(slug)
+    if data is None:
+        raise HTTPException(404, f"Utente '{slug}' non trovato")
+    if remove_password:
+        data.pop("password_hash", None)
+        flash(request, "Password rimossa. La dashboard è ora accessibile senza autenticazione.", "success")
+    elif password:
+        data["password_hash"] = hash_password(password)
+        flash(request, "Password dashboard aggiornata.", "success")
+    else:
+        flash(request, "Nessuna modifica: inserisci una password o usa 'Rimuovi'.", "warning")
+        return RedirectResponse(url=f"/admin/users/{slug}", status_code=303)
+    save_user(slug, data)
+    return RedirectResponse(url=f"/admin/users/{slug}", status_code=303)
 
 
 # ── Tiles CRUD ─────────────────────────────────────────────────────────────

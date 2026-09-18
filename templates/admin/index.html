@@ -33,7 +33,7 @@
         {% set dash_url = request.base_url ~ "dashboard/" ~ u.slug %}
         <tr>
           <td>{{ u.icon }}</td>
-          <td>{{ u.name }}</td>
+          <td>{{ u.name }} {% if u.has_password %}<span title="Protetta da password" style="font-size:.8rem">🔒</span>{% endif %}</td>
           <td>
             <span class="fm-link-cell">
               <a href="/dashboard/{{ u.slug }}" target="_blank" class="small">{{ dash_url }}</a>
