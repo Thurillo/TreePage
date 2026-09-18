@@ -109,8 +109,7 @@ async def browse(request: Request, path: str = ""):
     entries = sorted(target.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
     items = [_file_info(e) for e in entries if not (e.is_dir() and e.name in _HIDDEN_DIRS)]
 
-    return templates.TemplateResponse("admin/files.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin/files.html", {
         "current_path": _rel(target),
         "breadcrumbs": _breadcrumbs(_rel(target)),
         "items": items,
@@ -188,8 +187,7 @@ async def edit_file(request: Request, path: str = ""):
         raise HTTPException(400, "Tipo di file non modificabile")
     content = target.read_text(encoding="utf-8", errors="replace")
     parent_rel = _rel(target.parent)
-    return templates.TemplateResponse("admin/files.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin/files.html", {
         "current_path": path,
         "breadcrumbs": _breadcrumbs(path),
         "mode": "edit",

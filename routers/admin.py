@@ -13,7 +13,7 @@ import json
 
 import yaml
 from fastapi import APIRouter, BackgroundTasks, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from config import (
@@ -35,6 +35,10 @@ from config import (
     is_hashed,
     flash,
     pop_flashes,
+    list_db_configs,
+    load_db_config,
+    save_db_config,
+    delete_db_config,
 )
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -46,7 +50,6 @@ router = APIRouter(tags=["admin"])
 _SLUG_RE = re.compile(r"^[a-z0-9_-]+$")
 
 _DB_QUERIES_FILE = BASE_DIR / "db_queries.yaml"
-_DB_CONFIGS_DIR = BASE_DIR / "db_configs"
 
 
 def _load_db_queries() -> dict:
@@ -60,12 +63,6 @@ def _save_db_queries(data: dict) -> None:
         yaml.dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False),
         encoding="utf-8",
     )
-
-
-def _list_db_configs() -> list[str]:
-    if not _DB_CONFIGS_DIR.exists():
-        return []
-    return sorted(p.stem for p in _DB_CONFIGS_DIR.glob("*.yaml"))
 
 
 def _validate_slug(slug: str) -> None:
@@ -86,7 +83,7 @@ def _check_admin(request: Request):
 async def login_page(request: Request):
     if request.session.get("admin"):
         return RedirectResponse(url="/admin/", status_code=303)
-    return templates.TemplateResponse("admin/login.html", {"request": request})
+    return templates.TemplateResponse(request, "admin/login.html")
 
 
 @router.post("/login")
@@ -117,7 +114,7 @@ async def logout(request: Request):
 async def change_password_page(request: Request):
     if r := _check_admin(request):
         return r
-    return templates.TemplateResponse("admin/change_password.html", {"request": request})
+    return templates.TemplateResponse(request, "admin/change_password.html")
 
 
 @router.post("/change-password")
@@ -162,10 +159,7 @@ def _run(cmd: list[str], cwd: pathlib.Path) -> tuple[int, str]:
 async def update_page(request: Request):
     if r := _check_admin(request):
         return r
-    return templates.TemplateResponse("admin/update.html", {
-        "request": request,
-        "output": None,
-    })
+    return templates.TemplateResponse(request, "admin/update.html", {"output": None})
 
 
 @router.post("/update", response_class=HTMLResponse)
@@ -192,8 +186,7 @@ async def run_update(request: Request):
             "  git fetch origin\n"
             "  git reset --hard origin/main"
         )
-        return templates.TemplateResponse("admin/update.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "admin/update.html", {
             "output": "\n".join(lines),
             "ok": False,
         })
@@ -213,8 +206,7 @@ async def run_update(request: Request):
             f"Correggi i permessi come root sul server:\n\n"
             f"  chown -R treepage:treepage /opt/treepage/.git"
         )
-        return templates.TemplateResponse("admin/update.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "admin/update.html", {
             "output": "\n".join(lines),
             "ok": False,
         })
@@ -240,8 +232,7 @@ async def run_update(request: Request):
         if diff_code == 0:
             lines.append("Already up to date.")
             lines.append("\n✓ Nessun aggiornamento disponibile. Il codice è già all'ultima versione.")
-            return templates.TemplateResponse("admin/update.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "admin/update.html", {
                 "output": "\n".join(lines),
                 "ok": True,
             })
@@ -294,8 +285,7 @@ async def run_update(request: Request):
         if code != 0:
             ok = False
 
-    return templates.TemplateResponse("admin/update.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin/update.html", {
         "output": "\n".join(lines),
         "ok": ok,
     })
@@ -330,18 +320,21 @@ async def admin_index(request: Request):
             "name": data.get("name", slug),
             "icon": data.get("icon", "👤"),
             "tile_count": len(data.get("tiles", [])),
+            "has_password": bool(data.get("password_hash")),
         })
-    return templates.TemplateResponse(
-        "admin/index.html",
-        {
-            "request": request,
-            "users": users,
-            "projects": list_projects(),
-            "scripts": load_registry(),
-            "db_queries": _load_db_queries(),
-            "db_configs_list": _list_db_configs(),
-        },
-    )
+    db_configs_safe = {}
+    for cname in list_db_configs():
+        cfg = load_db_config(cname) or {}
+        db_configs_safe[cname] = {k: v for k, v in cfg.items() if k != "password"}
+
+    return templates.TemplateResponse(request, "admin/index.html", {
+        "users": users,
+        "projects": list_projects(),
+        "scripts": load_registry(),
+        "db_queries": _load_db_queries(),
+        "db_configs_list": list_db_configs(),
+        "db_configs": db_configs_safe,
+    })
 
 
 # ── Users CRUD ─────────────────────────────────────────────────────────────
@@ -350,10 +343,9 @@ async def admin_index(request: Request):
 async def new_user_form(request: Request):
     if r := _check_admin(request):
         return r
-    return templates.TemplateResponse(
-        "admin/user_edit.html",
-        {"request": request, "user": None, "slug": "", "projects": list_projects(), "scripts": load_registry()},
-    )
+    return templates.TemplateResponse(request, "admin/user_edit.html", {
+        "user": None, "slug": "", "projects": list_projects(), "scripts": load_registry(),
+    })
 
 
 @router.post("/users/new")
@@ -381,17 +373,13 @@ async def edit_user_form(request: Request, slug: str):
     if data is None:
         raise HTTPException(404, f"Utente '{slug}' non trovato")
     tiles = [normalize_tile(t) for t in data.get("tiles", [])]
-    return templates.TemplateResponse(
-        "admin/user_edit.html",
-        {
-            "request": request,
-            "user": data,
-            "slug": slug,
-            "tiles": tiles,
-            "projects": list_projects(),
-            "scripts": load_registry(),
-        },
-    )
+    return templates.TemplateResponse(request, "admin/user_edit.html", {
+        "user": data,
+        "slug": slug,
+        "tiles": tiles,
+        "projects": list_projects(),
+        "scripts": load_registry(),
+    })
 
 
 @router.post("/users/{slug}/update")
@@ -421,6 +409,31 @@ async def delete_user_route(request: Request, slug: str):
     if not delete_user(slug):
         raise HTTPException(404, f"Utente '{slug}' non trovato")
     return RedirectResponse(url="/admin/", status_code=303)
+
+
+@router.post("/users/{slug}/set-password")
+async def set_dashboard_password(
+    request: Request,
+    slug: str,
+    password: str = Form(""),
+    remove_password: str = Form(""),
+):
+    if r := _check_admin(request):
+        return r
+    data = load_user(slug)
+    if data is None:
+        raise HTTPException(404, f"Utente '{slug}' non trovato")
+    if remove_password:
+        data.pop("password_hash", None)
+        flash(request, "Password rimossa. La dashboard è ora accessibile senza autenticazione.", "success")
+    elif password:
+        data["password_hash"] = hash_password(password)
+        flash(request, "Password dashboard aggiornata.", "success")
+    else:
+        flash(request, "Nessuna modifica: inserisci una password o usa 'Rimuovi'.", "warning")
+        return RedirectResponse(url=f"/admin/users/{slug}", status_code=303)
+    save_user(slug, data)
+    return RedirectResponse(url=f"/admin/users/{slug}", status_code=303)
 
 
 # ── Tiles CRUD ─────────────────────────────────────────────────────────────
@@ -508,19 +521,15 @@ async def edit_tile_form(request: Request, slug: str, index: int):
     if index < 0 or index >= len(tiles):
         raise HTTPException(400, "Indice tile non valido")
     tile = normalize_tile(tiles[index])
-    return templates.TemplateResponse(
-        "admin/user_edit.html",
-        {
-            "request": request,
-            "user": data,
-            "slug": slug,
-            "tiles": [normalize_tile(t) for t in tiles],
-            "projects": list_projects(),
-            "scripts": load_registry(),
-            "edit_tile": tile,
-            "edit_tile_index": index,
-        },
-    )
+    return templates.TemplateResponse(request, "admin/user_edit.html", {
+        "user": data,
+        "slug": slug,
+        "tiles": [normalize_tile(t) for t in tiles],
+        "projects": list_projects(),
+        "scripts": load_registry(),
+        "edit_tile": tile,
+        "edit_tile_index": index,
+    })
 
 
 @router.post("/users/{slug}/tiles/{index}/update")
@@ -634,6 +643,91 @@ async def delete_project(request: Request, name: str):
     if project_dir.exists():
         shutil.rmtree(project_dir)
     return RedirectResponse(url="/admin/", status_code=303)
+
+
+# ── DB Configs CRUD ─────────────────────────────────────────────────────────
+
+@router.post("/db-config/add")
+async def add_db_config_route(
+    request: Request,
+    name: str = Form(...),
+    display_name: str = Form(""),
+    db_type: str = Form("mysql"),
+    host: str = Form(...),
+    port: str = Form(""),
+    user: str = Form(...),
+    password: str = Form(...),
+    database: str = Form(...),
+):
+    if r := _check_admin(request):
+        return r
+    _validate_slug(name)
+    if load_db_config(name) is not None:
+        flash(request, f"Connessione '{name}' già esistente.", "error")
+        return RedirectResponse(url="/admin/#db-connections", status_code=303)
+    cfg: dict = {"type": db_type, "host": host, "user": user, "password": password, "database": database}
+    if display_name:
+        cfg["name"] = display_name
+    if port:
+        cfg["port"] = int(port)
+    save_db_config(name, cfg)
+    flash(request, f"Connessione '{name}' salvata.", "success")
+    return RedirectResponse(url="/admin/#db-connections", status_code=303)
+
+
+@router.post("/db-config/{name}/edit")
+async def edit_db_config_route(
+    request: Request,
+    name: str,
+    display_name: str = Form(""),
+    db_type: str = Form("mysql"),
+    host: str = Form(...),
+    port: str = Form(""),
+    user: str = Form(...),
+    password: str = Form(""),
+    database: str = Form(...),
+):
+    if r := _check_admin(request):
+        return r
+    cfg = load_db_config(name)
+    if cfg is None:
+        raise HTTPException(404, f"Connessione '{name}' non trovata")
+    cfg["type"] = db_type
+    cfg["host"] = host
+    cfg["user"] = user
+    cfg["database"] = database
+    if display_name:
+        cfg["name"] = display_name
+    elif "name" in cfg:
+        del cfg["name"]
+    if port:
+        cfg["port"] = int(port)
+    elif "port" in cfg:
+        del cfg["port"]
+    if password:
+        cfg["password"] = password
+    save_db_config(name, cfg)
+    flash(request, f"Connessione '{name}' aggiornata.", "success")
+    return RedirectResponse(url="/admin/#db-connections", status_code=303)
+
+
+@router.post("/db-config/{name}/delete")
+async def delete_db_config_route(request: Request, name: str):
+    if r := _check_admin(request):
+        return r
+    if not delete_db_config(name):
+        raise HTTPException(404, f"Connessione '{name}' non trovata")
+    flash(request, f"Connessione '{name}' rimossa.", "success")
+    return RedirectResponse(url="/admin/#db-connections", status_code=303)
+
+
+@router.get("/db-config/{name}/test")
+async def test_db_config_route(request: Request, name: str):
+    if r := _check_admin(request):
+        return r
+    from lib.db import test_connection
+    ok, error = test_connection(name)
+    return JSONResponse({"ok": ok, "error": error})
 
 
 # ── DB Queries CRUD ─────────────────────────────────────────────────────────
